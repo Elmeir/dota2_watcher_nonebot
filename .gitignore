@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# 虚拟环境
+.venv/
+venv/
+
+# 环境变量（含密钥，勿提交）
+.env
+
+# 运行期产物
+matches/
+output/
+data/
+images/
+
+# 测试脚本（仅提交内容，不提交脚本本身）
+tests/
+
+# 临时验证文件
+_verify_*.txt
+_probe*.py
+_verify_final.py
+
+# IDE
+.vscode/
+.idea/
+.trae/
+.ruff_cache/
+
+# 系统
+Thumbs.db
+.DS_Store

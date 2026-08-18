@@ -1,0 +1,51 @@
+"""DOTA2 观察者 NoneBot2 插件。
+
+功能：开黑战报、订阅玩家比赛播报、TI 赛事监听、DOTA2 新闻监听、
+D2PT 位置数据、核心出装图片、TI 战报图片。
+
+配置（环境变量 / NoneBot 配置项，均以 D2W_ 前缀）：
+    D2W_STEAM_API_KEY   Steam Web API Key，用于拉取玩家比赛历史
+    D2W_PROXIES         代理，如 {"http": "...", "https": "..."}
+    D2W_TIMEOUT         网络超时（秒），默认 20
+    D2W_GAME_MODE       不播报的游戏模式，默认 [15, 19]
+"""
+
+from nonebot import get_driver, require
+from nonebot.log import logger
+from nonebot.plugin import PluginMetadata
+
+require("nonebot_plugin_apscheduler")
+
+# 下方 require() 必须先于插件模块导入执行，故豁免 E402。
+# ruff: noqa: E402
+
+# 以“模块”形式引入 config，避免包级名称 config 被实例覆盖
+# （否则其它模块 `from . import config as _cfg` 会拿到 Config 实例而非模块）
+from . import (
+    commands,  # noqa: F401
+    scheduler,  # noqa: F401
+)
+from . import config as _plugin_config
+
+__plugin_meta__ = PluginMetadata(
+    name="dota2_watcher",
+    description="DOTA2 观察者 NoneBot2 插件：DOTA2 开黑战报 / 新闻推送 / TI 赛事 / D2PT 出装",
+    usage=(
+        "添加刀塔玩家 [昵称] [steam的id]：订阅玩家，新比赛自动播报\n"
+        "开启/关闭[昵称]的群播报（昵称为“全体”时一次控制全部）\n"
+        "/d2pt [位置1-5]：D2PT 胜率/线优数据\n"
+        "/战报 [比赛编号]：生成开黑战报图片\n"
+        "/出装 [英雄名] [位置1-5] [dark|light]：核心出装图\n"
+        "/ti：TI 赛事战报图片"
+    ),
+    type="application",
+)
+
+
+@get_driver().on_startup
+async def _check_config() -> None:
+    if not _plugin_config.config.d2w_steam_api_key:
+        logger.warning(
+            "未配置 D2W_STEAM_API_KEY，订阅玩家比赛播报将不可用。"
+            "请在 .env 中设置该环境变量（申请地址: https://steamcommunity.com/dev/apikey）"
+        )
