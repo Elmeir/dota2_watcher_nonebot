@@ -13,6 +13,7 @@
 """
 
 import json
+import logging
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -66,6 +67,11 @@ except Exception:
     # 独立脚本 / 无 NoneBot 环境：使用默认配置
     config = Config()
 
+try:
+    from nonebot.log import logger
+except Exception:
+    logger = logging.getLogger(__name__)
+
 # ============================================================
 # 数据目录下的 config.json 配置文件（优先于环境变量/.env），便于运行期直接编辑。
 # 首次运行会自动生成默认配置；之后以该 JSON 为准。
@@ -87,6 +93,7 @@ try:
             json.dumps(config.model_dump(), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        logger.info(f"已生成配置文件，路径：{_CONFIG_FILE}")
 except Exception:
     # 独立脚本 / 无 NoneBot：忽略 JSON 配置，使用默认值
     pass

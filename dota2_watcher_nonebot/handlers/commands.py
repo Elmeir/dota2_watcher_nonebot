@@ -8,6 +8,7 @@ from nonebot import on_command, on_regex
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment
 from nonebot.adapters.onebot.v11.permission import GROUP_ADMIN, GROUP_OWNER
 from nonebot.matcher import Matcher
+from nonebot.permission import SUPERUSER
 
 from ..services import service
 
@@ -17,7 +18,7 @@ from ..services import service
 add_player_cmd = on_command("添加刀塔玩家", priority=10, block=True)
 list_players_cmd = on_command("查看刀塔玩家", priority=10, block=True)
 delete_player_cmd = on_command(
-    "删除刀塔玩家", priority=10, block=True, permission=GROUP_ADMIN | GROUP_OWNER
+    "删除刀塔玩家", priority=10, block=True, permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER
 )
 close_broadcast_cmd = on_regex(r"关闭(\S+)的群播报", priority=10, block=True)
 open_broadcast_cmd = on_regex(r"开启(\S+)的群播报", priority=10, block=True)
@@ -26,7 +27,7 @@ report_cmd = on_command("战报", priority=10, block=True)
 build_cmd = on_command("出装", priority=10, block=True)
 ti_cmd = on_command("ti", aliases={"TI"}, priority=10, block=True)
 subscribe_cmd = on_command(
-    "订阅", priority=10, block=True, permission=GROUP_ADMIN | GROUP_OWNER
+    "订阅", priority=10, block=True, permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER
 )
 
 

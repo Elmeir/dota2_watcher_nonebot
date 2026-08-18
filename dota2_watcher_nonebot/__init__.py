@@ -43,7 +43,9 @@ __plugin_meta__ = PluginMetadata(
 @get_driver().on_startup
 async def _check_config() -> None:
     if not _plugin_config.config.d2w_steam_api_key:
+        config_file = _plugin_config.DATA_DIR / "config.json"
         logger.warning(
-            "未配置 D2W_STEAM_API_KEY，订阅玩家比赛播报将不可用。"
-            "请在 .env 中设置该环境变量（申请地址: https://steamcommunity.com/dev/apikey）"
+            f"未配置 D2W_STEAM_API_KEY，订阅玩家比赛播报将不可用。"
+            f"请在 {config_file} 中设置，或设置环境变量 D2W_STEAM_API_KEY"
+            "（申请地址: https://steamcommunity.com/dev/apikey）"
         )

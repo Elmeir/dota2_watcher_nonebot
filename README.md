@@ -20,9 +20,13 @@
 pip install nonebot2 nonebot-adapter-onebot
 
 # 2. 安装本插件依赖
-pip install nonebot-plugin-apscheduler nonebot-plugin-datastore httpx aiohttp Pillow fonttools playwright
+pip install httpx aiohttp Pillow fonttools playwright
 
-# 3. 将本插件目录放入 NoneBot2 项目的 plugins/ 目录
+# 3. 安装 NoneBot 插件
+nb plugin install nonebot-plugin-apscheduler
+nb plugin install nonebot-plugin-datastore
+
+# 4. 将本插件目录放入 NoneBot2 项目的 plugins/ 目录
 ```
 
 > 本插件使用 Playwright 渲染部分页面，请额外安装浏览器内核：

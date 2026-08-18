@@ -298,13 +298,12 @@ def find_hero(data, hero_query):
 # HTML 构建 —— 直接照抄 div 结构与 Tailwind 类对应的 CSS
 # ============================================================
 def load_items_from_json():
-    """从 items.json 加载物品 ID -> 名称映射。"""
+    """从 items.json 加载物品 ID -> 名称映射（文件缺失时静默返回空）。"""
     try:
         with open(ITEMS_FILE, encoding="utf-8") as f:
             data = json.load(f)
         return {int(k): v for k, v in data.items()}
-    except Exception as e:
-        print(f"警告: 加载 items.json 失败: {e}", file=sys.stderr)
+    except Exception:
         return {}
 
 
@@ -333,6 +332,11 @@ def ensure_items_cache():
             with open(ITEMS_FILE, "w", encoding="utf-8") as f:
                 json.dump({str(k): v for k, v in items.items()}, f, ensure_ascii=False)
     ITEMS = items or {}
+    if not ITEMS:
+        print(
+            f"警告: 无法获取物品字典 {ITEMS_FILE}，物品图标可能无法显示",
+            file=sys.stderr,
+        )
 
 
 ITEMS = load_items_from_json()

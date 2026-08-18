@@ -46,9 +46,11 @@ def load() -> dict[str, dict]:
                 raw = json.loads(_STORE_FILE.read_text(encoding="utf-8"))
             except Exception:
                 raw = {}
+        migrated = False
         for gid, value in raw.items():
             if isinstance(value, list):
                 # 旧格式：{群号: [Player, ...]} → 迁移为新格式
+                migrated = True
                 group = {"players": [], "subscribe_news": True, "subscribe_ti": True}
                 for info in value:
                     if isinstance(info, dict):
@@ -64,6 +66,9 @@ def load() -> dict[str, dict]:
                 group["subscribe_ti"] = bool(value.get("subscribe_ti", True))
                 _data[str(gid)] = group
         _loaded = True
+        if migrated:
+            # 检测到旧格式后立即写回新格式，持久化迁移结果
+            save()
         return _data
 
 

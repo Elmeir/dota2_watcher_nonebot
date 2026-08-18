@@ -102,9 +102,7 @@ async def d2pt_report(pos: str = "all") -> Message:
 
 async def report_image(match_id: str) -> str:
     """生成开黑战报图片，返回本地路径；失败返回空串。"""
-    result = await match_builder.generate_report_img(match_id)
-    if not result:
-        result = await match_builder.generate_report_img(match_id, force=True)
+    result = await match_builder.generate_report_img(match_id, force=True)
     return result or ""
 
 
