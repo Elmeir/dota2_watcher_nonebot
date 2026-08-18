@@ -2,37 +2,55 @@
 name = "nonebot-plugin-dota2-watcher"
 version = "2.0.0"
 description = "DOTA2 观察者 NoneBot2 插件：DOTA2 开黑战报 / 新闻推送 / TI 赛事 / D2PT 出装"
+readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Elmeir", email = "" },
+]
+keywords = ["nonebot", "nonebot2", "dota2", "steam", "opendota", "d2pt"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: NoneBot",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Games/Entertainment",
+]
 dependencies = [
     "nonebot2>=2.3.0",
     "nonebot-adapter-onebot>=2.4.0",
     "nonebot-plugin-apscheduler>=0.4.0",
-    "nonebot-plugin-datastore>=1.0.0",
+    "nonebot-plugin-localstore>=0.4.0",
     "httpx>=0.24.0",
     "aiohttp>=3.8.0",
     "Pillow>=9.0.0",
     "fonttools>=4.0.0",
     "playwright>=1.30.0",
+    "pydantic>=2.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Elmeir/dota2-watcher-nonebot"
 
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.nonebot]
-plugins = ["dota2_watcher_nonebot"]
+plugins = ["nonebot_plugin_dota2_watcher"]
 
 [tool.setuptools]
 packages = [
-    "dota2_watcher_nonebot",
-    "dota2_watcher_nonebot.handlers",
-    "dota2_watcher_nonebot.services",
-    "dota2_watcher_nonebot.datasources",
-    "dota2_watcher_nonebot.generators",
+    "nonebot_plugin_dota2_watcher",
+    "nonebot_plugin_dota2_watcher.handlers",
+    "nonebot_plugin_dota2_watcher.services",
+    "nonebot_plugin_dota2_watcher.datasources",
+    "nonebot_plugin_dota2_watcher.generators",
 ]
-
-[tool.setuptools.package-data]
-dota2_watcher_nonebot = ["fonts/*"]
 
 [tool.ruff]
 target-version = "py310"

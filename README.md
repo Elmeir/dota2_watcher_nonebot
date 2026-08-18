@@ -51,7 +51,7 @@ nonebot.run()
 
 ## 配置
 
-所有配置项的默认值保存在 [`dota2_watcher_nonebot/config.py`](dota2_watcher_nonebot/config.py)（请勿直接修改，升级会被覆盖）。用户配置的优先级为：**数据目录下的 `config.json`（首次运行自动生成）> `.env` / 环境变量 > 默认值**。启动机器人一次后，即可在 `<数据目录>/config.json` 中直接编辑全部配置项。
+所有配置项的默认值保存在 [`nonebot_plugin_dota2_watcher/config.py`](nonebot_plugin_dota2_watcher/config.py)（请勿直接修改，升级会被覆盖）。用户配置的优先级为：**数据目录下的 `config.json`（首次运行自动生成）> `.env` / 环境变量 > 默认值**。启动机器人一次后，即可在 `<数据目录>/config.json` 中直接编辑全部配置项。
 
 | 环境变量                           | 说明                                                                           | 默认值        |
 | ------------------------------ | ---------------------------------------------------------------------------- | ---------- |
@@ -71,7 +71,7 @@ nonebot.run()
 | `D2W_DOWNLOAD_TIMEOUT`         | 下载超时（秒）                                                                      | `60`       |
 | `D2W_MATCH_ANALYSIS_TIMEOUT`   | OpenDota 录像分析等待上限（秒）                                                         | `120`      |
 
-> 运行期数据与缓存目录由 [nonebot-plugin-datastore](https://github.com/he0119/nonebot-plugin-datastore) 统一管理，默认写入系统用户数据目录；如需自定义，可设置 `DATASTORE_DATA_DIR` / `DATASTORE_CACHE_DIR`。
+> 运行期数据与缓存目录由 [nonebot-plugin-localstore](https://github.com/nonebot/plugin-localstore) 统一管理，默认写入系统用户数据目录；如需自定义，可设置 `LOCALSTORE_DATA_DIR` / `LOCALSTORE_CACHE_DIR`。
 
 示例 `.env`：
 
@@ -80,8 +80,8 @@ D2W_STEAM_API_KEY=你的Steam_Web_API_Key
 D2W_PROXIES={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"}
 D2W_GH_PROXY=https://gh-proxy.com
 D2W_TIMEOUT=20
-DATASTORE_DATA_DIR=./data     # 可选：数据目录（订阅信息、持久缓存）
-DATASTORE_CACHE_DIR=./cache   # 可选：图片/战报等可再生缓存目录
+LOCALSTORE_DATA_DIR=./data     # 可选：数据目录（订阅信息、持久缓存）
+LOCALSTORE_CACHE_DIR=./cache   # 可选：图片/战报等可再生缓存目录
 ```
 
 ## 使用方法
@@ -107,7 +107,7 @@ DATASTORE_CACHE_DIR=./cache   # 可选：图片/战报等可再生缓存目录
 ## 目录结构
 
 ```
-dota2_watcher_nonebot/            # 插件包
+nonebot_plugin_dota2_watcher/     # 插件包
 ├── __init__.py              # 插件入口与元数据
 ├── config.py                # 插件配置
 ├── utils.py                 # 网络请求与通用工具
@@ -128,9 +128,7 @@ dota2_watcher_nonebot/            # 插件包
 │   ├── core_build.py        # 核心出装图生成
 │   ├── match_builder.py     # 开黑战报生成
 │   ├── match_report.py      # 战报图片绘制
-│   ├── text2img.py          # 文本转图片
 │   └── shared_browser.py    # 共享 Playwright 浏览器
-└── fonts/                   # 字体资源
 ```
 
 ## 致谢

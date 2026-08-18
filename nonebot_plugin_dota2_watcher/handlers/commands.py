@@ -29,6 +29,7 @@ ti_cmd = on_command("ti", aliases={"TI"}, priority=10, block=True)
 subscribe_cmd = on_command(
     "订阅", priority=10, block=True, permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER
 )
+help_cmd = on_command("help", aliases={"帮助"}, priority=10, block=True)
 
 
 def _args(event: GroupMessageEvent) -> list[str]:
@@ -37,7 +38,7 @@ def _args(event: GroupMessageEvent) -> list[str]:
 
 
 # ---------------------------------------------------------------
-# 添加玩家
+# /添加刀塔玩家：订阅玩家，新比赛自动播报
 # ---------------------------------------------------------------
 @add_player_cmd.handle()
 async def handle_add_player(event: GroupMessageEvent):
@@ -51,7 +52,7 @@ async def handle_add_player(event: GroupMessageEvent):
 
 
 # ---------------------------------------------------------------
-# 查看玩家
+# /查看刀塔玩家：列出本群订阅玩家
 # ---------------------------------------------------------------
 @list_players_cmd.handle()
 async def handle_list_players(event: GroupMessageEvent):
@@ -59,7 +60,7 @@ async def handle_list_players(event: GroupMessageEvent):
 
 
 # ---------------------------------------------------------------
-# 删除玩家（管理员以上）
+# /删除刀塔玩家：删除指定玩家（管理员以上）
 # ---------------------------------------------------------------
 @delete_player_cmd.handle()
 async def handle_delete_player(event: GroupMessageEvent):
@@ -144,7 +145,7 @@ async def handle_ti():
 
 
 # ---------------------------------------------------------------
-# 订阅开关（管理员以上，切换：开启<->关闭）
+# /订阅 新闻|ti：切换新闻/TI 订阅开关（管理员以上）
 # ---------------------------------------------------------------
 @subscribe_cmd.handle()
 async def handle_subscribe(event: GroupMessageEvent):
@@ -157,3 +158,25 @@ async def handle_subscribe(event: GroupMessageEvent):
     if target in ("ti", "赛事"):
         await subscribe_cmd.finish(service.toggle_ti_subscription(event.group_id))
     await subscribe_cmd.finish("请输入：/订阅 新闻 或 /订阅 ti")
+
+
+# ---------------------------------------------------------------
+# /help
+# ---------------------------------------------------------------
+_HELP_TEXT = (
+    "DOTA2 观察者插件 指令列表：\n"
+    "/添加刀塔玩家 [昵称] [steam的id]：订阅玩家，新比赛自动播报\n"
+    "/查看刀塔玩家：列出本群订阅玩家\n"
+    "/删除刀塔玩家 [昵称]：删除指定玩家（管理员以上）\n"
+    "开启/关闭[昵称]的群播报：控制某玩家（或“全体”）播报\n"
+    "/d2pt [位置1-5]：D2PT 各位置胜率/线优数据\n"
+    "/战报 [比赛编号]：生成开黑战报图片\n"
+    "/出装 [英雄名] [位置1-5] [dark|light]：核心出装图\n"
+    "/ti：TI 赛事战报图片\n"
+    "/订阅 新闻|ti：切换新闻/TI 订阅开关（管理员以上）"
+)
+
+
+@help_cmd.handle()
+async def handle_help():
+    await help_cmd.finish(_HELP_TEXT)

@@ -31,11 +31,10 @@ else:
 
 WORK_DIR = str(_cfg.BASE_DIR)
 IMAGES_DIR = str(_cfg.IMAGES_DIR)
-FONTS_DIR = str(_cfg.FONTS_DIR)
 MATCHES_DIR = str(_cfg.MATCHES_DIR)
 OUTPUT_DIR = str(_cfg.OUTPUT_DIR)
 
-for d in [WORK_DIR, IMAGES_DIR, FONTS_DIR, MATCHES_DIR, OUTPUT_DIR]:
+for d in [WORK_DIR, IMAGES_DIR, MATCHES_DIR, OUTPUT_DIR]:
     os.makedirs(d, exist_ok=True)
 
 # 图片按类别归档的子目录（hero / item）

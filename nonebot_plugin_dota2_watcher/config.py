@@ -5,7 +5,7 @@
   （例如 `D2W_STEAM_API_KEY`、`D2W_PROXIES`、`D2W_GH_PROXY`）。
   包内只保存默认值，用户无需（也不应）直接修改本文件，避免升级插件时配置被覆盖。
 - 文件后半部分：运行期目录、数据源 URL 等常量；运行期数据/缓存目录由
-  nonebot-plugin-datastore 提供（可用 `DATASTORE_DATA_DIR` / `DATASTORE_CACHE_DIR` 覆盖），
+  nonebot-plugin-localstore 提供（可用 `LOCALSTORE_DATA_DIR` / `LOCALSTORE_CACHE_DIR` 覆盖），
   GitHub 加速前缀则优先读取上面的 `D2W_GH_PROXY` 配置项。
 
 本文件不强制依赖 NoneBot：在独立脚本中直接 `import config` 时，
@@ -17,12 +17,6 @@ import logging
 from pathlib import Path
 
 from pydantic import BaseModel
-
-# ============================================================
-# 随包资源（不随配置改变）
-# ============================================================
-PACKAGE_DIR = Path(__file__).resolve().parent  # 插件包目录（随包资源如字体）
-FONTS_DIR = PACKAGE_DIR / "fonts"  # 字体（随包分发）
 
 
 class Config(BaseModel):
@@ -77,9 +71,9 @@ except Exception:
 # 首次运行会自动生成默认配置；之后以该 JSON 为准。
 # ============================================================
 try:
-    from nonebot_plugin_datastore import get_plugin_data
+    from nonebot_plugin_localstore import get_data_dir
 
-    _CONFIG_FILE = get_plugin_data("dota2_watcher_nonebot").data_dir / "config.json"
+    _CONFIG_FILE = get_data_dir("nonebot_plugin_dota2_watcher") / "config.json"
     if _CONFIG_FILE.exists():
         try:
             _override = json.loads(_CONFIG_FILE.read_text(encoding="utf-8")) or {}
@@ -99,19 +93,20 @@ except Exception:
     pass
 
 # ============================================================
-# 运行期目录：优先使用 nonebot-plugin-datastore 提供的标准数据/缓存目录，
+# 运行期目录：优先使用 nonebot-plugin-localstore 提供的标准数据/缓存目录，
 # 独立脚本（无 NoneBot）退化为当前工作目录，从而避免污染插件包。
-# 目录位置可用 DATASTORE_DATA_DIR / DATASTORE_CACHE_DIR 覆盖。
+# 目录位置可用 LOCALSTORE_DATA_DIR / LOCALSTORE_CACHE_DIR 覆盖。
 # ============================================================
 try:
-    from nonebot_plugin_datastore import get_plugin_data
+    from nonebot_plugin_localstore import get_cache_dir, get_data_dir
 
-    _plugin_data = get_plugin_data("dota2_watcher_nonebot")
-    BASE_DIR = _plugin_data.cache_dir  # 工作/临时文件（如 npc_ability_ids.txt）
-    DATA_DIR = _plugin_data.data_dir  # 持久数据（玩家订阅、D2PT/TI/英雄缓存等）
-    IMAGES_DIR = _plugin_data.cache_dir / "images"  # 运行期下载的图片素材
-    OUTPUT_DIR = _plugin_data.cache_dir / "output"  # 生成的战报图片
-    MATCHES_DIR = _plugin_data.cache_dir / "matches"  # 比赛 JSON 缓存
+    _cache_dir = get_cache_dir("nonebot_plugin_dota2_watcher")
+    _data_dir = get_data_dir("nonebot_plugin_dota2_watcher")
+    BASE_DIR = _cache_dir  # 工作/临时文件（如 npc_ability_ids.txt）
+    DATA_DIR = _data_dir  # 持久数据（玩家订阅、D2PT/TI/英雄缓存等）
+    IMAGES_DIR = _cache_dir / "images"  # 运行期下载的图片素材
+    OUTPUT_DIR = _cache_dir / "output"  # 生成的战报图片
+    MATCHES_DIR = _cache_dir / "matches"  # 比赛 JSON 缓存
 except Exception:
     # 独立脚本 / 无 NoneBot 环境：使用默认配置，数据写入当前工作目录
     _DATA_ROOT = Path.cwd()
