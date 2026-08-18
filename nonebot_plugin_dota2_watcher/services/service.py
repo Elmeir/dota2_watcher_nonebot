@@ -23,6 +23,10 @@ from .player import Player
 
 _last_news_title = ""
 
+# Steam GetMatchHistory 接口存在速率限制，并发过高易触发 429/503 导致请求失败，
+# 因此用信号量限制同批并发拉取比赛历史的数量（并发上限见 config.d2w_history_concurrency）。
+_history_semaphore = asyncio.Semaphore(config.d2w_history_concurrency)
+
 
 # ---------------------------------------------------------------
 # 命令业务
@@ -144,7 +148,8 @@ async def _broadcast(text: str | None, filter_key: str | None = None) -> None:
 async def _fetch_history(player: Player) -> int | None:
     """获取玩家最近一场比赛 ID；失败时记日志并返回 None。"""
     try:
-        return await request_match_history(player, config.d2w_steam_api_key)
+        async with _history_semaphore:
+            return await request_match_history(player, config.d2w_steam_api_key)
     except Exception as e:
         logger.warning(f"获取 {player.nickname} 最近比赛失败: {e}")
         return None
