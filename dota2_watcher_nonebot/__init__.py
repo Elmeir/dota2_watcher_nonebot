@@ -15,6 +15,7 @@ from nonebot.log import logger
 from nonebot.plugin import PluginMetadata
 
 require("nonebot_plugin_apscheduler")
+require("nonebot_plugin_datastore")
 
 # 下方 require() 必须先于插件模块导入执行，故豁免 E402。
 # ruff: noqa: E402

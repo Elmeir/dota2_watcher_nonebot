@@ -20,7 +20,7 @@
 pip install nonebot2 nonebot-adapter-onebot
 
 # 2. 安装本插件依赖
-pip install nonebot-plugin-apscheduler httpx aiohttp Pillow fonttools playwright
+pip install nonebot-plugin-apscheduler nonebot-plugin-datastore httpx aiohttp Pillow fonttools playwright
 
 # 3. 将本插件目录放入 NoneBot2 项目的 plugins/ 目录
 ```
@@ -47,7 +47,7 @@ nonebot.run()
 
 ## 配置
 
-所有配置项均以 `D2W_` 前缀通过环境变量或 `.env` 文件设置。注意：请勿直接修改 [`dota2_watcher_nonebot/config.py`](dota2_watcher_nonebot/config.py)，该文件只保存默认值，升级插件时会被覆盖，用户自定义配置应统一写在项目根目录的 `.env` 中。
+所有配置项的默认值保存在 [`dota2_watcher_nonebot/config.py`](dota2_watcher_nonebot/config.py)（请勿直接修改，升级会被覆盖）。用户配置的优先级为：**数据目录下的 `config.json`（首次运行自动生成）> `.env` / 环境变量 > 默认值**。启动机器人一次后，即可在 `<数据目录>/config.json` 中直接编辑全部配置项。
 
 | 环境变量                           | 说明                                                                           | 默认值        |
 | ------------------------------ | ---------------------------------------------------------------------------- | ---------- |
@@ -66,7 +66,8 @@ nonebot.run()
 | `D2W_CORE_BUILD_CACHE_SECONDS` | 核心出装数据缓存时长（秒）                                                                | `86400`    |
 | `D2W_DOWNLOAD_TIMEOUT`         | 下载超时（秒）                                                                      | `60`       |
 | `D2W_MATCH_ANALYSIS_TIMEOUT`   | OpenDota 录像分析等待上限（秒）                                                         | `120`      |
-| `D2W_DATA_DIR`                 | 运行期数据根目录（订阅数据 / 缓存 / 图片 / 战报输出），留空时使用当前工作目录                          | 空          |
+
+> 运行期数据与缓存目录由 [nonebot-plugin-datastore](https://github.com/he0119/nonebot-plugin-datastore) 统一管理，默认写入系统用户数据目录；如需自定义，可设置 `DATASTORE_DATA_DIR` / `DATASTORE_CACHE_DIR`。
 
 示例 `.env`：
 
@@ -74,8 +75,9 @@ nonebot.run()
 D2W_STEAM_API_KEY=你的Steam_Web_API_Key
 D2W_PROXIES={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"}
 D2W_GH_PROXY=https://gh-proxy.com
-D2W_DATA_DIR=./data
 D2W_TIMEOUT=20
+DATASTORE_DATA_DIR=./data     # 可选：数据目录（订阅信息、持久缓存）
+DATASTORE_CACHE_DIR=./cache   # 可选：图片/战报等可再生缓存目录
 ```
 
 ## 使用方法

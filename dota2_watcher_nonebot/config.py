@@ -1,16 +1,18 @@
 """插件配置。
 
-- `Config`：NoneBot 用户可配置项，统一用 `D2W_` 前缀环境变量或 `.env` 覆盖
-  （例如 `D2W_STEAM_API_KEY=...`、`D2W_PROXIES={"http": "...", ...}`、
-  `D2W_GH_PROXY=...`、`D2W_DATA_DIR=...`）。
+- `Config`：NoneBot 用户可配置项，默认值在包内；用户配置优先从数据目录下的
+  `config.json` 读取（首次运行自动生成），其次才是 `D2W_` 前缀的环境变量 / `.env`
+  （例如 `D2W_STEAM_API_KEY`、`D2W_PROXIES`、`D2W_GH_PROXY`）。
   包内只保存默认值，用户无需（也不应）直接修改本文件，避免升级插件时配置被覆盖。
-- 文件后半部分：运行期目录、数据源 URL 等常量；其中数据目录与 GitHub 加速前缀
-  会优先读取上面的配置项，未设置时才使用默认值。
+- 文件后半部分：运行期目录、数据源 URL 等常量；运行期数据/缓存目录由
+  nonebot-plugin-datastore 提供（可用 `DATASTORE_DATA_DIR` / `DATASTORE_CACHE_DIR` 覆盖），
+  GitHub 加速前缀则优先读取上面的 `D2W_GH_PROXY` 配置项。
 
 本文件不强制依赖 NoneBot：在独立脚本中直接 `import config` 时，
 会退化为使用默认配置，方便脱离框架单独测试生成器脚本。
 """
 
+import json
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -43,10 +45,6 @@ class Config(BaseModel):
     d2w_benchmark_threshold: float = 0.5
     # GitHub 加速前缀（国内访问 GitHub raw 资源时使用，可按需替换为其它代理）
     d2w_gh_proxy: str = "https://gh-proxy.com"
-    # 运行期数据根目录（订阅数据 / 缓存 / 图片 / 战报输出等写入处）。
-    # 留空时回退到当前工作目录（NoneBot 项目根目录）；可按需设为绝对路径，
-    # 如 D2W_DATA_DIR=D:/my-bot/data
-    d2w_data_dir: str = ""
     # 定时任务轮询间隔（秒）
     d2w_ti_poll_interval: int = 10
     d2w_news_poll_interval: int = 60
@@ -69,14 +67,52 @@ except Exception:
     config = Config()
 
 # ============================================================
-# 运行期目录（优先读取 config.d2w_data_dir；留空则用当前工作目录）
+# 数据目录下的 config.json 配置文件（优先于环境变量/.env），便于运行期直接编辑。
+# 首次运行会自动生成默认配置；之后以该 JSON 为准。
 # ============================================================
-_DATA_ROOT = Path(config.d2w_data_dir).expanduser().resolve() if config.d2w_data_dir else Path.cwd()
-BASE_DIR = _DATA_ROOT  # 运行期根目录（临时文件等写入处）
-DATA_DIR = _DATA_ROOT / "data"  # 运行时数据（玩家订阅、D2PT 缓存、TI 缓存等）
-IMAGES_DIR = _DATA_ROOT / "images"  # 运行期下载的图片素材
-OUTPUT_DIR = _DATA_ROOT / "output"  # 生成的战报图片
-MATCHES_DIR = _DATA_ROOT / "matches"  # 比赛 JSON 缓存
+try:
+    from nonebot_plugin_datastore import get_plugin_data
+
+    _CONFIG_FILE = get_plugin_data("dota2_watcher_nonebot").data_dir / "config.json"
+    if _CONFIG_FILE.exists():
+        try:
+            _override = json.loads(_CONFIG_FILE.read_text(encoding="utf-8")) or {}
+            config = Config(**{**config.model_dump(), **_override})
+        except Exception:
+            # config.json 内容非法时回退到默认/环境变量配置，避免启动失败
+            pass
+    else:
+        # 首次运行：写入默认配置（含当前已生效的环境变量值），便于后续编辑
+        _CONFIG_FILE.write_text(
+            json.dumps(config.model_dump(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+except Exception:
+    # 独立脚本 / 无 NoneBot：忽略 JSON 配置，使用默认值
+    pass
+
+# ============================================================
+# 运行期目录：优先使用 nonebot-plugin-datastore 提供的标准数据/缓存目录，
+# 独立脚本（无 NoneBot）退化为当前工作目录，从而避免污染插件包。
+# 目录位置可用 DATASTORE_DATA_DIR / DATASTORE_CACHE_DIR 覆盖。
+# ============================================================
+try:
+    from nonebot_plugin_datastore import get_plugin_data
+
+    _plugin_data = get_plugin_data("dota2_watcher_nonebot")
+    BASE_DIR = _plugin_data.cache_dir  # 工作/临时文件（如 npc_ability_ids.txt）
+    DATA_DIR = _plugin_data.data_dir  # 持久数据（玩家订阅、D2PT/TI/英雄缓存等）
+    IMAGES_DIR = _plugin_data.cache_dir / "images"  # 运行期下载的图片素材
+    OUTPUT_DIR = _plugin_data.cache_dir / "output"  # 生成的战报图片
+    MATCHES_DIR = _plugin_data.cache_dir / "matches"  # 比赛 JSON 缓存
+except Exception:
+    # 独立脚本 / 无 NoneBot 环境：使用默认配置，数据写入当前工作目录
+    _DATA_ROOT = Path.cwd()
+    BASE_DIR = _DATA_ROOT
+    DATA_DIR = _DATA_ROOT / "data"
+    IMAGES_DIR = _DATA_ROOT / "images"
+    OUTPUT_DIR = _DATA_ROOT / "output"
+    MATCHES_DIR = _DATA_ROOT / "matches"
 
 # ============================================================
 # 上游数据源

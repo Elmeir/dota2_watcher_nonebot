@@ -60,6 +60,8 @@ DATA_CACHE_SECONDS = _cfg.config.d2w_core_build_cache_seconds  # 24 小时
 ABILITY_IMAGE_URL = _cfg.ABILITY_IMAGE_URL
 # 物品图片 CDN
 ITEM_IMAGE_URL = _cfg.ITEM_IMAGE_URL
+# OpenDota 物品字典（用于本地生成 items.json）
+OPENDOTA_ITEMS_URL = _cfg.OPENDOTA_ITEMS_URL
 
 # 仓库内图标（经 gh-proxy 从 GitHub 仓库拉取并本地缓存）
 REPO_RAW_BASE = _cfg.D2PT_REPO_ICON_BASE
@@ -223,6 +225,8 @@ def ensure_data_file():
             # 生成完成后删除临时源文件，只保留 abilities.json
             os.remove(NPC_ABILITY_IDS_FILE)
     ABILITIES = loadjson(ABILITIES_FILE)
+    # 物品映射：items.json 可能缺失（如数据目录迁移后），兜底保证其就绪
+    ensure_items_cache()
 
 
 def _avg_time_minutes(time_str):
@@ -302,6 +306,33 @@ def load_items_from_json():
     except Exception as e:
         print(f"警告: 加载 items.json 失败: {e}", file=sys.stderr)
         return {}
+
+
+def ensure_items_cache():
+    """确保物品 ID -> 名称映射可用；items.json 缺失时从 OpenDota 拉取并缓存。
+
+    items.json 原本由战报模块（match_report）生成，出装命令单独运行时可能缺失，
+    这里在缺失时兜底拉取，保证物品图标能正确解析显示。
+    """
+    global ITEMS
+    if ITEMS:
+        return
+    items = load_items_from_json()
+    if items:
+        ITEMS = items
+        return
+    # 从 OpenDota 拉取并转成与 match_report 一致的 {id: name} 缓存格式
+    if _download_to(OPENDOTA_ITEMS_URL, ITEMS_FILE):
+        raw = loadjson(ITEMS_FILE)
+        items = {
+            int(it.get("id")): key.replace("item_", "")
+            for key, it in raw.items()
+            if isinstance(it, dict) and it.get("id")
+        }
+        if items:
+            with open(ITEMS_FILE, "w", encoding="utf-8") as f:
+                json.dump({str(k): v for k, v in items.items()}, f, ensure_ascii=False)
+    ITEMS = items or {}
 
 
 ITEMS = load_items_from_json()
