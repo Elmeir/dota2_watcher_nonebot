@@ -21,11 +21,8 @@ require("nonebot_plugin_apscheduler")
 
 # 以“模块”形式引入 config，避免包级名称 config 被实例覆盖
 # （否则其它模块 `from . import config as _cfg` 会拿到 Config 实例而非模块）
-from . import (
-    commands,  # noqa: F401
-    scheduler,  # noqa: F401
-)
 from . import config as _plugin_config
+from .handlers import commands, scheduler  # noqa: F401
 
 __plugin_meta__ = PluginMetadata(
     name="dota2_watcher",

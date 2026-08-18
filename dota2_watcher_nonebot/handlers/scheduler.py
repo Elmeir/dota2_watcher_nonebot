@@ -12,8 +12,8 @@ require("nonebot_plugin_apscheduler")
 
 from nonebot_plugin_apscheduler import scheduler
 
-from . import services
-from .config import config
+from ..config import config
+from ..services import service
 
 
 # ---------------------------------------------------------------
@@ -24,7 +24,7 @@ from .config import config
 )
 async def watch_ti_results() -> None:
     """拉取最新 TI 赛果并广播（定时任务）。"""
-    await services.poll_ti_results()
+    await service.poll_ti_results()
 
 
 # ---------------------------------------------------------------
@@ -35,7 +35,7 @@ async def watch_ti_results() -> None:
 )
 async def watch_news() -> None:
     """监听 DOTA2 官方新闻，出现新头条时广播。"""
-    await services.poll_news()
+    await service.poll_news()
 
 
 # ---------------------------------------------------------------
@@ -46,4 +46,4 @@ async def watch_news() -> None:
 )
 async def watch_new_matches() -> None:
     """轮询订阅玩家的新比赛并生成战报播报。"""
-    await services.poll_new_matches()
+    await service.poll_new_matches()

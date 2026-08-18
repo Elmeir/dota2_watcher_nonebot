@@ -22,10 +22,16 @@ build-backend = "setuptools.build_meta"
 plugins = ["dota2_watcher_nonebot"]
 
 [tool.setuptools]
-packages = ["dota2_watcher_nonebot", "dota2_watcher_nonebot.config"]
+packages = [
+    "dota2_watcher_nonebot",
+    "dota2_watcher_nonebot.handlers",
+    "dota2_watcher_nonebot.services",
+    "dota2_watcher_nonebot.datasources",
+    "dota2_watcher_nonebot.generators",
+]
 
 [tool.setuptools.package-data]
-dota2_watcher_nonebot = ["images/*", "fonts/*", "*.json", "data/*"]
+dota2_watcher_nonebot = ["fonts/*"]
 
 [tool.ruff]
 target-version = "py310"

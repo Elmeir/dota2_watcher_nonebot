@@ -47,7 +47,7 @@ nonebot.run()
 
 ## 配置
 
-所有配置项均以 `D2W_` 前缀通过环境变量或 `.env` 文件设置，或直接修改 [`config/__init__.py`](config/__init__.py)。
+所有配置项均以 `D2W_` 前缀通过环境变量或 `.env` 文件设置，或直接修改 [`dota2_watcher_nonebot/config.py`](dota2_watcher_nonebot/config.py)。
 
 | 环境变量                           | 说明                                                                           | 默认值        |
 | ------------------------------ | ---------------------------------------------------------------------------- | ---------- |
@@ -97,17 +97,30 @@ D2W_TIMEOUT=20
 ## 目录结构
 
 ```
-├── commands.py        # 命令处理器
-├── services.py        # 业务逻辑层
-├── scheduler.py       # 定时任务（TI / 新闻 / 玩家比赛轮询）
-├── config/
-│   ├── __init__.py       # 插件配置
-├── match_builder.py   # 开黑战报生成
-├── core_build.py      # 核心出装图生成
-├── d2pt.py            # D2PT 数据
-├── ti_results.py      # TI 赛果
-├── fonts/             # 字体资源
-└── ...
+dota2_watcher_nonebot/            # 插件包
+├── __init__.py              # 插件入口与元数据
+├── config.py                # 插件配置
+├── utils.py                 # 网络请求与通用工具
+├── dota_dicts.py            # DOTA2 静态字典
+├── hero_nicknames.py        # 英雄昵称映射
+├── handlers/                # NoneBot 交互层
+│   ├── commands.py          # 命令处理器
+│   └── scheduler.py         # 定时任务（TI / 新闻 / 玩家比赛轮询）
+├── services/                # 业务逻辑层
+│   ├── service.py           # 命令与定时任务共用的业务函数
+│   ├── store.py             # 订阅数据存储
+│   └── player.py            # 玩家数据模型
+├── datasources/             # 外部数据源
+│   ├── request_match.py     # Steam / OpenDota 请求
+│   ├── d2pt.py              # D2PT 数据
+│   └── ti_results.py        # TI 赛果
+├── generators/              # 图片 / 文本生成
+│   ├── core_build.py        # 核心出装图生成
+│   ├── match_builder.py     # 开黑战报生成
+│   ├── match_report.py      # 战报图片绘制
+│   ├── text2img.py          # 文本转图片
+│   └── shared_browser.py    # 共享 Playwright 浏览器
+└── fonts/                   # 字体资源
 ```
 
 ## 致谢

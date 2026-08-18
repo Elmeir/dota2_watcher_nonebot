@@ -1,13 +1,13 @@
 """OpenDota / Steam Web API 请求封装（httpx 实现）。"""
 
-from .config import (
+from ..config import (
     OPENDOTA_MATCH_URL,
     STEAM_MATCH_DETAILS_URL,
     STEAM_MATCH_HISTORY_URL,
     STEAM_NEWS_URL,
     config,
 )
-from .utils import DOTA2HTTPError, get_http_client, prompt_error
+from ..utils import DOTA2HTTPError, get_http_client, prompt_error
 
 # Steam Web API Key（未配置时相关播报会报错）
 API_KEY = config.d2w_steam_api_key

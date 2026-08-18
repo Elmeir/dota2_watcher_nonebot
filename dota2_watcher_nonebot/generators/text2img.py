@@ -5,7 +5,7 @@ import io
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .config import FONTS_DIR
+from ..config import FONTS_DIR
 
 FONT_PATH = FONTS_DIR / "SourceHanSansCN-Medium.otf"
 

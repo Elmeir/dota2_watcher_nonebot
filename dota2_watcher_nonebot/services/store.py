@@ -15,7 +15,7 @@ import json
 import threading
 from pathlib import Path
 
-from .config import DATA_DIR, config
+from ..config import DATA_DIR, config
 from .player import Player
 
 _STORE_FILE: Path = DATA_DIR / "player_info.json"

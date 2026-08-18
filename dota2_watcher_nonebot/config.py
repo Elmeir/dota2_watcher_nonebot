@@ -17,10 +17,11 @@ from pydantic import BaseModel
 # ============================================================
 # 目录
 # ============================================================
-BASE_DIR = Path(__file__).resolve().parent.parent
+PACKAGE_DIR = Path(__file__).resolve().parent  # 插件包目录（随包资源如字体）
+BASE_DIR = PACKAGE_DIR.parent  # 项目根目录（运行期数据 / 缓存写入处）
 DATA_DIR = BASE_DIR / "data"  # 运行时数据（玩家订阅、D2PT 缓存、TI 缓存等）
-IMAGES_DIR = BASE_DIR / "images"  # 图片素材
-FONTS_DIR = BASE_DIR / "fonts"  # 字体
+IMAGES_DIR = BASE_DIR / "images"  # 运行期下载的图片素材
+FONTS_DIR = PACKAGE_DIR / "fonts"  # 字体（随包分发）
 OUTPUT_DIR = BASE_DIR / "output"  # 生成的战报图片
 MATCHES_DIR = BASE_DIR / "matches"  # 比赛 JSON 缓存
 

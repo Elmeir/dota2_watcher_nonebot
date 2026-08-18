@@ -10,11 +10,17 @@ from nonebot import get_bots
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 from nonebot.log import logger
 
-from . import core_build, d2pt, match_builder, store, ti_results
-from .config import config
+from ..config import config
+from ..datasources import d2pt, ti_results
+from ..datasources.request_match import (
+    request_match_history,
+    request_match_info_opendota,
+    request_news,
+)
+from ..generators import core_build, match_builder
+from ..generators.text2img import image_draw
+from . import store
 from .player import Player
-from .request_match import request_match_history, request_match_info_opendota, request_news
-from .text2img import image_draw
 
 _last_news_title = ""
 

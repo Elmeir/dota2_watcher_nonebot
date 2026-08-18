@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 # 兼容两种运行方式：作为插件包被导入，或作为独立脚本直接运行。
 # 所有目录 / URL / 超时等配置统一从 config.py 读取。
 if __package__:
-    from . import config as _cfg
+    from .. import config as _cfg
 else:
     import config as _cfg
 

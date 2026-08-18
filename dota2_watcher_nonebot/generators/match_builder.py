@@ -6,9 +6,8 @@ import time
 
 from nonebot.log import logger
 
-from . import match_report
-from .config import config
-from .dota_dicts import (
+from ..config import config
+from ..dota_dicts import (
     GAME_MODE,
     HEROES_LIST_CHINESE,
     LOBBY,
@@ -17,6 +16,7 @@ from .dota_dicts import (
     WIN_NEGATIVE,
     WIN_POSTIVE,
 )
+from . import match_report
 
 
 def _mode_label(match_info: dict) -> tuple[str, str]:

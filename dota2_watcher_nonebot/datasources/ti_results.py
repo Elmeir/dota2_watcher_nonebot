@@ -33,8 +33,8 @@ from datetime import datetime, timedelta, timezone
 # 兼容两种运行方式：作为插件包被导入，或作为独立脚本直接运行。
 # 所有 URL / 目录 / 赛事配置统一从 config.py 读取。
 if __package__:
-    from . import config as _cfg
-    from . import shared_browser
+    from .. import config as _cfg
+    from ..generators import shared_browser
 else:
     import config as _cfg
     import shared_browser

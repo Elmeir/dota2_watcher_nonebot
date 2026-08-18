@@ -7,9 +7,9 @@ from typing import Any
 
 from nonebot.log import logger
 
-from .config import D2PT_POS_URL, DATA_DIR, config
-from .dota_dicts import HEROES_LIST_CHINESE
-from .utils import DOTA2HTTPError, get_http_client
+from ..config import D2PT_POS_URL, DATA_DIR, config
+from ..dota_dicts import HEROES_LIST_CHINESE
+from ..utils import DOTA2HTTPError, get_http_client
 
 CACHE_EXPIRE_SECONDS = config.d2w_cache_expire_seconds  # 缓存时长（秒）
 POS_RAW_FILE = DATA_DIR / "d2pt_pos.json"  # 远程合并的全位置原始数据缓存
