@@ -18,7 +18,6 @@ from ..datasources.request_match import (
     request_news,
 )
 from ..generators import core_build, match_builder
-from ..generators.text2img import image_draw
 from . import store
 from .player import Player
 
@@ -77,7 +76,7 @@ def toggle_ti_subscription(group_id) -> str:
 
 
 async def d2pt_report(pos: str = "all") -> Message:
-    """D2PT 位置数据（图片 + 文本）。"""
+    """D2PT 位置数据（文本）。"""
     try:
         # 默认走 1 小时缓存，避免每次触发都重新拉取
         posdata = await d2pt.load_data(force_update=False)
@@ -91,13 +90,7 @@ async def d2pt_report(pos: str = "all") -> Message:
     if not msg:
         return Message("d2pt读取数据失败")
 
-    out = Message()
-    try:
-        out += MessageSegment.image(file=image_draw(msg))
-    except Exception:
-        logger.exception("d2pt 文本转图片失败")
-    out += Message(msg)
-    return out
+    return Message(msg)
 
 
 async def report_image(match_id: str) -> str:

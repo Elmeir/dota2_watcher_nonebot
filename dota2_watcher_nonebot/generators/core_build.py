@@ -1208,18 +1208,14 @@ async def generate_image(
     # 超采样抗锯齿：以更高倍率渲染，再用 PIL Lanczos 降采样回目标尺寸，
     # 使细边框/文字边缘更锐利，同时保持最终输出大小不变（默认 600px）。
     render_scale = device_scale_factor * supersample
-    browser = await get_browser()
-    context = await browser.new_context(
-        device_scale_factor=render_scale,
-    )
-    page = await context.new_page()
+    # 复用共享 page 反复 set_content（而非每次 new_context/new_page），批量生成时更快。
+    page = await shared_browser.get_page(render_scale)
     # 技能/物品图标均以 base64 data URL 内嵌，无需等待网络 idle；
     # 等 load 事件（含本地资源）即可，避免 networkidle 固定 500ms 空窗。
     await page.set_content(html, wait_until="load")
     await page.wait_for_timeout(50)
     container = page.locator("#container")
     png_bytes = await container.screenshot()
-    await context.close()
 
     # 降采样回目标尺寸
     if supersample > 1:

@@ -1011,6 +1011,13 @@ async def generate_match_image(
 
     await init_images()
 
+    # 同步的 PIL 绘制 + 保存是 CPU/IO 密集操作，放到线程执行，避免阻塞事件循环。
+    return await asyncio.to_thread(
+        _render_match_image, match, font_paths, scale, output_path, match_id, t0
+    )
+
+
+def _render_match_image(match, font_paths, scale, output_path, match_id, t0):
     def _s(v):
         return int(v * scale)
 

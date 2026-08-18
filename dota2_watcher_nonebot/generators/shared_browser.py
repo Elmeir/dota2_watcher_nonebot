@@ -32,6 +32,12 @@ _playwright = None
 _browser = None
 _loop_id = None
 
+# 共享渲染上下文 / 页面：复用同一个 page 反复 set_content，避免每次 new_context/new_page 开销。
+_context = None
+_page = None
+_context_scale = None
+_page_loop_id = None
+
 
 async def get_browser():
     """获取（或创建）共享浏览器实例。
@@ -60,9 +66,37 @@ async def get_browser():
     return _browser
 
 
+async def get_page(device_scale_factor: float = 1.0):
+    """获取（或创建）共享页面实例，复用同一个 page 反复 set_content。
+
+    同一事件循环 / 同一 device_scale_factor 下复用同一 page；缩放倍率变化或
+    跨事件循环时自动重建上下文与页面。
+    """
+    global _context, _page, _context_scale, _page_loop_id
+
+    loop_id = id(asyncio.get_running_loop())
+    browser = await get_browser()
+    if (
+        _page is None
+        or _context_scale != device_scale_factor
+        or _page_loop_id != loop_id
+        or _page.is_closed()
+    ):
+        if _context is not None:
+            try:
+                await _context.close()
+            except Exception:
+                pass
+        _context = await browser.new_context(device_scale_factor=device_scale_factor)
+        _page = await _context.new_page()
+        _context_scale = device_scale_factor
+        _page_loop_id = loop_id
+    return _page
+
+
 async def close_browser():
     """关闭共享浏览器实例（可选，程序退出时会自动清理）。"""
-    global _playwright, _browser, _loop_id
+    global _playwright, _browser, _loop_id, _context, _page, _context_scale, _page_loop_id
 
     if _browser is not None:
         try:
@@ -76,6 +110,10 @@ async def close_browser():
         except Exception:
             pass
         _playwright = None
+    _context = None
+    _page = None
+    _context_scale = None
+    _page_loop_id = None
     _loop_id = None
 
 

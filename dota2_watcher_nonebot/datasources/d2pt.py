@@ -141,10 +141,10 @@ def generate_message(data: dict, pos: str = "all") -> str:
     if pos == "all":
         for p in (1, 2, 3, 4, 5):
             lines.append(_header(f"{p}号位"))
-            lines.extend(_row(item) for item in data.get(str(p), [])[:10])
+            lines.extend(_row(item) for item in data.get(str(p), [])[:5])
             lines.append("")
     elif str(pos) in ("1", "2", "3", "4", "5"):
         lines.append(_header(f"{pos}号位"))
-        lines.extend(_row(item) for item in data.get(str(pos), [])[:20])
+        lines.extend(_row(item) for item in data.get(str(pos), [])[:10])
 
     return "\n".join(lines).rstrip("\n")
