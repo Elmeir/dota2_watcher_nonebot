@@ -24,8 +24,10 @@ from PIL import Image, ImageDraw, ImageFont
 # 所有目录 / URL / 超时等配置统一从 config.py 读取。
 if __package__:
     from .. import config as _cfg
+    from ..utils import download_file
 else:
     import config as _cfg
+    from utils import download_file
 
 WORK_DIR = str(_cfg.BASE_DIR)
 IMAGES_DIR = str(_cfg.IMAGES_DIR)
@@ -769,13 +771,18 @@ async def init_images():
 
     async def download_one(name, url, path):
         nonlocal downloaded, failed
-        session = await get_session()
         try:
-            async with session.get(url) as resp:
-                data = await resp.read()
-                with open(path, "wb") as f:
-                    f.write(data)
+            ok = await asyncio.to_thread(
+                download_file,
+                url,
+                path,
+                timeout=_cfg.config.d2w_download_timeout,
+                quiet=True,
+            )
+            if ok:
                 downloaded += 1
+            else:
+                failed += 1
         except Exception:
             failed += 1
 

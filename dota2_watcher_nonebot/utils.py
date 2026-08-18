@@ -1,8 +1,17 @@
 """网络请求与通用工具。"""
 
+import os
+import ssl
+import sys
+import time
+import urllib.request
+
 import httpx
 
-from .config import config
+if __package__:
+    from .config import config
+else:
+    from config import config
 
 
 class DOTA2HTTPError(Exception):
@@ -49,3 +58,44 @@ async def get_http_client() -> httpx.AsyncClient:
             **_proxies_kwargs(),
         )
     return _client
+
+
+# 部分公开素材 CDN（如 cdn.cloudflare.steamstatic.com）的证书缺少 Authority Key Identifier，
+# 在较新的 OpenSSL / Python 上会触发 CERTIFICATE_VERIFY_FAILED。这里为素材下载统一
+# 使用不校验证书的上下文，下载内容为公开图片/数据，风险可控。
+_UNVERIFIED_SSL_CONTEXT = ssl.create_default_context()
+_UNVERIFIED_SSL_CONTEXT.check_hostname = False
+_UNVERIFIED_SSL_CONTEXT.verify_mode = ssl.CERT_NONE
+
+_DEFAULT_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+
+
+def download_bytes(url, timeout=None, headers=None, retries=1):
+    """下载 url 内容为字节（不校验 SSL，用于公开素材）。最后一次失败抛出异常。"""
+    req = urllib.request.Request(url, headers=headers or _DEFAULT_HEADERS)
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            with urllib.request.urlopen(
+                req, timeout=timeout, context=_UNVERIFIED_SSL_CONTEXT
+            ) as resp:
+                return resp.read()
+        except Exception as e:
+            last_exc = e
+            if attempt < retries - 1:
+                time.sleep(1.0)
+    raise last_exc
+
+
+def download_file(url, filepath, timeout=None, headers=None, quiet=False, retries=1):
+    """下载 url 内容到本地文件（不校验 SSL，用于公开素材）。成功返回 True，失败返回 False。"""
+    try:
+        body = download_bytes(url, timeout=timeout, headers=headers, retries=retries)
+    except Exception as e:
+        if not quiet:
+            print(f"警告: 下载 {os.path.basename(filepath)} 失败: {e}", file=sys.stderr)
+        return False
+    os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+    with open(filepath, "wb") as f:
+        f.write(body)
+    return True

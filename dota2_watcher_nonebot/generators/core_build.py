@@ -20,7 +20,6 @@ import os
 import re
 import sys
 import time
-import urllib.request
 
 # 兼容两种运行方式：作为插件包被导入，或作为独立脚本直接运行
 if __package__:
@@ -39,8 +38,10 @@ else:
 # 所有目录 / URL / 缓存等配置统一从 config.py 读取。
 if __package__:
     from .. import config as _cfg
+    from ..utils import download_file
 else:
     import config as _cfg
+    from utils import download_file
 
 WORK_DIR = str(_cfg.BASE_DIR)
 IMAGES_DIR = str(_cfg.IMAGES_DIR)
@@ -57,6 +58,8 @@ DATA_CACHE_SECONDS = _cfg.config.d2w_core_build_cache_seconds  # 24 小时
 
 # 技能图片 CDN（加点图标）
 ABILITY_IMAGE_URL = _cfg.ABILITY_IMAGE_URL
+# 物品图片 CDN
+ITEM_IMAGE_URL = _cfg.ITEM_IMAGE_URL
 
 # 仓库内图标（经 gh-proxy 从 GitHub 仓库拉取并本地缓存）
 REPO_RAW_BASE = _cfg.D2PT_REPO_ICON_BASE
@@ -69,7 +72,9 @@ UNDEFINED_IMAGE_NAME = "undefined"
 NPC_ABILITY_IDS_FILE = os.path.join(WORK_DIR, "npc_ability_ids.txt")
 NPC_ABILITY_IDS_URLS = [_cfg.NPC_ABILITY_IDS_URL]
 
-for d in [OUTPUT_DIR, ABILITIES_IMAGES_DIR]:
+ITEM_IMAGES_DIR = os.path.join(IMAGES_DIR, "item")
+
+for d in [OUTPUT_DIR, ABILITIES_IMAGES_DIR, ITEM_IMAGES_DIR]:
     os.makedirs(d, exist_ok=True)
 
 # ============================================================
@@ -149,19 +154,9 @@ def loadjson(jsonfile, default=None):
 
 def _download_to(url, filepath, quiet=False):
     """下载 url 内容到本地文件，成功返回 True，失败返回 False。"""
-    req = urllib.request.Request(
-        url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    return download_file(
+        url, filepath, timeout=_cfg.config.d2w_download_timeout, quiet=quiet
     )
-    try:
-        with urllib.request.urlopen(req, timeout=_cfg.config.d2w_download_timeout) as resp:
-            body = resp.read()
-        with open(filepath, "wb") as f:
-            f.write(body)
-        return True
-    except Exception as e:
-        if not quiet:
-            print(f"警告: 下载 {os.path.basename(filepath)} 失败: {e}", file=sys.stderr)
-        return False
 
 
 def _repo_icon_url(name):
@@ -329,6 +324,8 @@ def ability_id_to_name(ability_id):
 
 # 记录下载失败的技能名，避免每次生成都重试 + 重复告警
 _MISSING_ABILITIES = set()
+# 记录下载失败的物品名，避免每次生成都重试 + 重复告警
+_MISSING_ITEMS = set()
 
 
 def _solid_png_data_url(rgb=(128, 128, 128), w=64, h=36):
@@ -616,7 +613,13 @@ def build_item_card(item, theme=THEME_DARK, show_time=True, show_core=True, stre
 
     # 读取本地物品图标，转成 data URL（物品图已归档到 images/item/）
     img_filename = image_name_from_url(image_url)
-    img_path = os.path.join(IMAGES_DIR, "item", img_filename)
+    img_path = os.path.join(ITEM_IMAGES_DIR, img_filename)
+    if not os.path.exists(img_path):
+        # 本地缺失时按需从 CDN 下载（失败则标记，避免重复告警）
+        if item_name and img_filename not in _MISSING_ITEMS:
+            url_name = "recipe" if item_name.startswith("recipe") else item_name
+            if not _download_to(ITEM_IMAGE_URL.format(name=url_name), img_path, quiet=True):
+                _MISSING_ITEMS.add(img_filename)
     if os.path.exists(img_path):
         bg_image = f"url('{image_to_data_url(img_path)}')"
     else:

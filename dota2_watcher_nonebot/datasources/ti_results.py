@@ -35,9 +35,11 @@ from datetime import datetime, timedelta, timezone
 if __package__:
     from .. import config as _cfg
     from ..generators import shared_browser
+    from ..utils import download_bytes
 else:
     import config as _cfg
     import shared_browser
+    from utils import download_bytes
 
 # TI 2026 联赛 ID（可由 dota2.com/esports/ti15/schedule 页面 URL 中的 ti15 参数确认）
 LEAGUE_ID = _cfg.TI_LEAGUE_ID
@@ -1266,9 +1268,9 @@ def _download_logo_image(url, max_h=50):
     try:
         from PIL import Image
 
-        req = urllib.request.Request(url, headers={"User-Agent": HEADERS["User-Agent"]})
-        with _urlopen_with_retry(req, timeout=5) as resp:
-            raw = resp.read()
+        raw = download_bytes(
+            url, timeout=5, headers={"User-Agent": HEADERS["User-Agent"]}, retries=3
+        )
         src = Image.open(io.BytesIO(raw)).convert("RGBA")
         sw, sh = src.size
         ratio = max_h / sh

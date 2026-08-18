@@ -47,13 +47,14 @@ nonebot.run()
 
 ## 配置
 
-所有配置项均以 `D2W_` 前缀通过环境变量或 `.env` 文件设置，或直接修改 [`dota2_watcher_nonebot/config.py`](dota2_watcher_nonebot/config.py)。
+所有配置项均以 `D2W_` 前缀通过环境变量或 `.env` 文件设置。注意：请勿直接修改 [`dota2_watcher_nonebot/config.py`](dota2_watcher_nonebot/config.py)，该文件只保存默认值，升级插件时会被覆盖，用户自定义配置应统一写在项目根目录的 `.env` 中。
 
 | 环境变量                           | 说明                                                                           | 默认值        |
 | ------------------------------ | ---------------------------------------------------------------------------- | ---------- |
 | `D2W_STEAM_API_KEY`            | Steam Web API Key（用于拉取玩家比赛历史），[申请地址](https://steamcommunity.com/dev/apikey)  | 空          |
 | `D2W_TI_STEAM_API_KEY`         | TI 赛事 / 实时单局使用的独立 API Key，留空时复用上面的 Key                                       | 空          |
 | `D2W_PROXIES`                  | 网络代理，如 `{"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"}` | `{}`       |
+| `D2W_GH_PROXY`                 | GitHub 加速前缀（国内访问 GitHub raw 资源时使用，可替换为其它代理）                                | `https://gh-proxy.com` |
 | `D2W_TIMEOUT`                  | 网络请求超时（秒）                                                                    | `20`       |
 | `D2W_ALL_NICKNAME`             | “全体”播报的昵称关键字                                                                 | `全体`       |
 | `D2W_GAME_MODE`                | 不播报的游戏模式列表                                                                   | `[15, 19]` |
@@ -65,12 +66,15 @@ nonebot.run()
 | `D2W_CORE_BUILD_CACHE_SECONDS` | 核心出装数据缓存时长（秒）                                                                | `86400`    |
 | `D2W_DOWNLOAD_TIMEOUT`         | 下载超时（秒）                                                                      | `60`       |
 | `D2W_MATCH_ANALYSIS_TIMEOUT`   | OpenDota 录像分析等待上限（秒）                                                         | `120`      |
+| `D2W_DATA_DIR`                 | 运行期数据根目录（订阅数据 / 缓存 / 图片 / 战报输出），留空时使用当前工作目录                          | 空          |
 
 示例 `.env`：
 
 ```dotenv
 D2W_STEAM_API_KEY=你的Steam_Web_API_Key
 D2W_PROXIES={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"}
+D2W_GH_PROXY=https://gh-proxy.com
+D2W_DATA_DIR=./data
 D2W_TIMEOUT=20
 ```
 
