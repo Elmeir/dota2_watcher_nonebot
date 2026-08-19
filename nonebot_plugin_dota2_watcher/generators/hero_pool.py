@@ -2,7 +2,9 @@
 
 样式模仿 Stratz 站点（stratz.com/players/）：按出场占比划分的浅灰扇区（灰细边）、
 出场前三英雄用按各自头像主色调生成的径向渐变高亮，英雄头像环绕环带且出场越多越大；
-环心还有一圈按 position 占比着色的内环带，并放置 1-5 号位图标。无图例、无标题。
+环心还有一圈按 position 占比着色的内环带（已缩小，外侧留空），并放置 1-5 号位
+图标；中心洞内显示玩家 steam 头像（圆形裁切），玩家名以带黑色描边的纯色文字
+按圆弧排在空环带上（自动缩字号、必要时截断）。
 
 默认使用亮色主题（THEME="light"），可改为 "dark" 切回暗色。
 数据来源见 ../datasources/hero_pool.py。
@@ -10,6 +12,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 from collections.abc import Sequence
 
@@ -19,6 +22,7 @@ from ..config import OUTPUT_DIR
 from ..datasources import hero_pool as ds
 
 SCALE = 2  # 分辨率倍率
+SS = 4     # 超采样倍率：先 4x 绘制再降采样，抗锯齿
 
 # 环形布局常量（viewBox 640x640 = 320*2）
 CX = CY = 160 * SCALE
@@ -32,10 +36,11 @@ ICON_RADIUS = 130 * SCALE  # 头像中心所在半径（环带中部）
 THEME = "light"  # 默认主题，改为 "dark" 可切回暗色
 
 # 环心内环带（模仿 STRATZ 中间内环：真环形 + 描边），按 position 占比
-# Stratz 320 坐标下内环外半径 84、内半径 37（环带宽 47，中间是洞）
+# Stratz 320 坐标下内环外半径 84、内半径 37（环带宽 47，中间是洞）。
+# 这里把内环整体缩小（外半径 84 -> 62），留出外侧空环带，用于排布玩家名弧。
 # 各扇区 fill-opacity + 描边，圆心留空 —— 均为 stratz.com/players/ 实测值
-INNER_OUT = 0.84 * R_IN              # 内环外半径
-INNER_IN = INNER_OUT * 37.0 / 84.0   # 内环内半径（同 Stratz 的 37/84 比例）
+INNER_OUT = 0.75 * R_IN              # 内环外半径（已缩小，腾出名字环带）
+INNER_IN = INNER_OUT * 0.55          # 内环内半径（进一步缩小，中心洞更小、位置环带更宽）
 INNER_ICON_RADIUS = (INNER_OUT + INNER_IN) / 2.0  # 内环位置图标所在半径（环带中部）
 
 THEMES: dict[str, dict] = {
@@ -49,6 +54,7 @@ THEMES: dict[str, dict] = {
         "inner_opacity": 0.52,              # 内环填充不透明度
         "inner_unknown": "hsl(0,0%,0%)",    # 内环未知扇区颜色（深灰）
         "inner_unknown_alpha": 0.2,         # 内环未知扇区透明度（稍作提亮以便辨识）
+        "watermark": "#DCE2E9",             # 环心玩家名水印颜色（中性灰）
         "grad_center_light": 0.70,          # 头像渐变中心亮度（亮）
         "grad_edge_light": 0.42,            # 头像渐变外缘亮度（软过渡，避免发灰）
         # 位置扇区填充色（亮色主题稍亮、对比度更好）
@@ -84,6 +90,7 @@ THEMES: dict[str, dict] = {
         "inner_opacity": 0.4,
         "inner_unknown": "hsl(0,0%,100%)",
         "inner_unknown_alpha": 0.16,
+        "watermark": "#A1A1AA",             # 环心玩家名水印颜色（浅灰）
         "grad_center_light": 0.62,
         "grad_edge_light": 0.14,
         # 位置扇区填充色 = STRATZ 位置渐变第 2 个 stop（stratz.com/players/ 内环实测色值）
@@ -600,10 +607,127 @@ def _draw_position_icon(canvas, pos: PositionKey, ix: float, iy: float, size: fl
             tmp = Image.new("1", (dim, dim), 0)
             ImageDraw.Draw(tmp).polygon(pts, fill=1)
             mask = ImageChops.logical_xor(mask, tmp)
-        alpha = mask.convert("L").point(lambda v: int(v * op))
+        alpha = mask.convert("L").point([int(v * op) for v in range(256)])
         layer = Image.new("RGBA", (dim, dim), (*color, 0))
         layer.putalpha(alpha)
         canvas.alpha_composite(layer, (round(ox), round(oy)))
+
+
+# ============================================================
+# 环心玩家名水印（纯色 + 黑色描边署名，圆弧排布在空环带上）
+# ============================================================
+# 复用战报生成器 match_report 的字体系统（init_fonts / draw_text_with_fallback），
+# 支持中文、emoji 等任意字符；结果懒加载并缓存，避免每次渲染都扫描字体。
+# 内环缩小后外侧留出空环带，玩家名以圆弧（顶部居中、左右对称）排布其上，
+# 不占用中心小圈，也不压到位置图标。
+NAME_RADIUS = (INNER_OUT + R_IN) / 2.0            # 名字弧形所在半径（最终像素）
+NAME_MAX_W = 2 * math.pi * NAME_RADIUS * 0.6      # 名字弧长上限（最终像素，留边距）
+NAME_MAX_SIZE = 30               # 起始字号（最终像素）
+NAME_MIN_SIZE = 18               # 最小可读字号
+NAME_CHAR_SPACING = 5            # 弧上相邻字素簇之间的额外间距（最终像素）
+_NAME_ELLIPSIS = "…"
+_name_font_paths: list[str] | None = None
+
+
+async def _get_name_font_paths() -> list[str]:
+    """返回可用字体列表（复用战报字体系统，懒加载并缓存）。"""
+    global _name_font_paths
+    if _name_font_paths is None:
+        from .match_report import init_fonts
+
+        _name_font_paths = await init_fonts()
+    return _name_font_paths
+
+
+def _fit_name_text(name: str, font_paths: list[str], max_w: float) -> tuple[str, int]:
+    """在 max_w 内自适应缩字号；缩到最小字号仍放不下则从尾部截断加省略号。
+
+    返回 (绘制文本, 字号)；字号为最终像素，绘制时再乘超采样倍率 SS。
+    """
+    from .match_report import font_getsize_with_fallback
+
+    def fits(text: str, size: int) -> bool:
+        w, _ = font_getsize_with_fallback(text, font_paths, size)
+        return w <= max_w
+
+    size = NAME_MAX_SIZE
+    while size > NAME_MIN_SIZE and not fits(name, size):
+        size -= 2
+    if fits(name, size):
+        return name, size
+    # 字号已缩到最小仍放不下：从尾部逐字符截断前缀，末尾补省略号
+    for end in range(len(name) - 1, 0, -1):
+        candidate = name[:end] + _NAME_ELLIPSIS
+        if fits(candidate, size):
+            return candidate, size
+    return _NAME_ELLIPSIS, size
+
+
+def _render_cluster_img(cluster, fp, font_size, fill, stroke_fill):
+    """把单个字素簇渲染为带黑色描边的 RGBA 小图（供旋转贴合圆弧使用）。"""
+    from PIL import Image, ImageDraw, ImageFont
+
+    from .match_report import font_getsize
+
+    font = ImageFont.truetype(fp, font_size)
+    w, h = font_getsize(font, cluster)
+    pad = 4
+    img = Image.new("RGBA", (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    x0, y0 = pad, pad
+    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)):
+        d.text((x0 + dx, y0 + dy), cluster, font=font, fill=stroke_fill)
+    d.text((x0, y0), cluster, font=font, fill=fill)
+    return img
+
+
+def _draw_name_on_ring(canvas, name, font_paths, cx, cy, fill, stroke_fill) -> None:
+    """把玩家名按圆弧排布在空环带上（顶部居中、左右对称），保持字体回退与黑色描边。
+
+    fill / stroke_fill 已预混为不透明色；逐字素簇渲染成小图再旋转，贴合圆周切线。
+    """
+    from PIL import Image, ImageFont
+
+    from .match_report import _split_into_clusters, font_getsize, segment_text_by_fonts
+
+    text, size = _fit_name_text(name, font_paths, NAME_MAX_W)
+    font_size = size * SS
+    radius = NAME_RADIUS * SS
+    # 按字体回退分段，逐字素簇测量宽度，保证每段使用各自可用字体
+    items: list[tuple[str, str, float]] = []  # (cluster, font_path, advance_w)
+    total_w = 0.0
+    for seg_text, fp in segment_text_by_fonts(text, font_paths):
+        font = ImageFont.truetype(fp, font_size)
+        for cluster in _split_into_clusters(seg_text):
+            w, _ = font_getsize(font, cluster)
+            items.append((cluster, fp, w))
+            total_w += w
+    if not items:
+        return
+    # 总角跨度以顶部（-90°）为中心左右对称（含字间距）；cur_deg 为当前字符的起点角度，依次向右推进
+    total_span = total_w + NAME_CHAR_SPACING * SS * (len(items) - 1)
+    cur_deg = -90.0 - math.degrees(total_span / radius) / 2.0
+    for cluster, fp, w in items:
+        center_deg = cur_deg + math.degrees(w / 2.0 / radius)
+        px, py = _polar(center_deg, radius, cx, cy)
+        img = _render_cluster_img(cluster, fp, font_size, fill, stroke_fill)
+        # 旋转使字形基线贴合圆弧切线（PIL 正角为逆时针，故取负）
+        img = img.rotate(-(center_deg + 90.0), resample=Image.BICUBIC, expand=True)
+        iw, ih = img.size
+        canvas.alpha_composite(img, (round(px - iw / 2), round(py - ih / 2)))
+        cur_deg += math.degrees((w + NAME_CHAR_SPACING * SS) / radius)
+
+
+def _draw_center_avatar(canvas, cx, cy, img, hole_r) -> None:
+    """把玩家 steam 头像裁剪成圆形，居中绘制在中心洞里（hole_r 为洞半径，画布像素）。"""
+    from PIL import Image, ImageChops, ImageDraw
+
+    diam = max(1, int(hole_r * 2 * 0.9))  # 略盖过内环内缘，确保填满中心洞
+    resized = img.resize((diam, diam), Image.LANCZOS)
+    mask = Image.new("L", (diam, diam), 0)
+    ImageDraw.Draw(mask).ellipse([0, 0, diam, diam], fill=255)
+    resized.putalpha(ImageChops.multiply(resized.getchannel("A"), mask))
+    canvas.alpha_composite(resized, (round(cx - diam / 2), round(cy - diam / 2)))
 
 
 # ============================================================
@@ -629,12 +753,12 @@ def _radial_gradient(cx: float, cy: float, ro: float, size: int, c0, c1):
 
 
 async def render_png(stats: list[dict], total: int, out_path, pos_dist=None,
-                     hero_gradients: Sequence[tuple[str, str] | None] = ()) -> None:
+                     hero_gradients: Sequence[tuple[str, str] | None] = (),
+                     player_name: str = "", avatar_url: str = "") -> None:
     """用 Pillow 直接渲染 PNG 环形图（无 numpy 依赖）。"""
     from PIL import Image, ImageDraw
 
     size = 320 * SCALE
-    SS = 4                       # 超采样倍率：先 4x 绘制再降采样，抗锯齿
     W = size * SS
 
     th = THEMES[THEME]
@@ -662,6 +786,8 @@ async def render_png(stats: list[dict], total: int, out_path, pos_dist=None,
     sector_fill = _color_rgb(th["sector_fill"])
     sector_op = int(th["sector_opacity"] * 255) / 255.0
     flat_fill = tuple(round(sector_fill[i] * sector_op + bg[i] * (1 - sector_op)) for i in range(3))
+    # 渐变扇区遮罩的固定透明度 LUT：point 传查表走 C 快速路径，避免对 2560×2560 逐像素回调 lambda
+    gap_lut = [int(v * th["gap_opacity"] * th["sector_opacity"]) for v in range(256)]
 
     starts = []
     cursor = -90.0
@@ -679,7 +805,7 @@ async def render_png(stats: list[dict], total: int, out_path, pos_dist=None,
             # 渐变 stop 透明度与扇区 fill-opacity 叠加，同 STRATZ
             mask = Image.new("L", (W, W), 0)
             ImageDraw.Draw(mask).polygon(ptsi, fill=255)
-            alpha = mask.point(lambda v: int(v * th["gap_opacity"] * th["sector_opacity"]))
+            alpha = mask.point(gap_lut)
             grad.putalpha(alpha)
             canvas.alpha_composite(grad, (0, 0))
         else:
@@ -740,18 +866,35 @@ async def render_png(stats: list[dict], total: int, out_path, pos_dist=None,
         ix, iy = _pl(imid, i_icon_r)
         _draw_position_icon(canvas, pos, ix, iy, isz)
 
-    # 头像：放在对应扇区中心（逆时针 mid 角）
+    # 头像：放在对应扇区中心（逆时针 mid 角）。
+    # 先并发预取所有头像，避免首次渲染时逐个串行下载造成长时间等待。
+    hero_imgs = await asyncio.gather(
+        *(ds.load_icon_img(item["short"]) for item in stats),
+        return_exceptions=True,
+    )
     cursor = -90.0
-    for item in stats:
+    for item, img in zip(stats, hero_imgs):
         span = item["count"] * 360.0 / total
         mid = (cursor + (cursor - span)) / 2.0
-        img = await ds.load_icon_img(item["short"])
-        if img is not None:
+        if isinstance(img, Image.Image):
             sz = _icon_size(item["count"]) * SS
             ix, iy = _pl(mid, ric)
             resized = img.resize((sz, sz), Image.LANCZOS)
             canvas.alpha_composite(resized, (round(ix - sz / 2), round(iy - sz / 2)))
         cursor = cursor - span
+
+    # 中心洞内的玩家 steam 头像（圆形裁切）
+    if avatar_url:
+        avatar_img = await ds.load_avatar_img(avatar_url)
+        if isinstance(avatar_img, Image.Image):
+            _draw_center_avatar(canvas, cx, cy, avatar_img, i_in)
+
+    # 环心玩家名水印：纯色署名 + 黑色描边，按圆弧排在空环带上（降采样前绘制以抗锯齿）
+    if player_name:
+        font_paths = await _get_name_font_paths()
+        if font_paths:
+            wm_fill = _color_rgb(th["watermark"])
+            _draw_name_on_ring(canvas, player_name, font_paths, cx, cy, wm_fill, (0, 0, 0))
 
     # 统一降采样到目标尺寸（LANCZOS 抗锯齿）
     canvas = canvas.resize((size, size), Image.LANCZOS)
@@ -763,7 +906,7 @@ async def generate_image(steam_id, count=100, refresh=False) -> str:
 
     数据抓取/渲染失败时抛 ds.HeroPoolError（供上层转为用户提示）。
     """
-    player_name, matches = await ds.fetch_matches(steam_id, count=count, refresh=refresh)
+    player_name, avatar_url, matches = await ds.fetch_matches(steam_id, count=count, refresh=refresh)
     if not matches:
         raise ds.HeroPoolError("未获取到任何比赛数据，请检查 steam_id 与 Token")
 
@@ -776,5 +919,6 @@ async def generate_image(steam_id, count=100, refresh=False) -> str:
 
     out_path = OUTPUT_DIR / f"hero_pool_{steam_id}.png"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    await render_png(stats, total, out_path, pos_dist, hero_gradients)
+    await render_png(stats, total, out_path, pos_dist, hero_gradients, player_name,
+                     avatar_url=avatar_url)
     return str(out_path)

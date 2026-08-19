@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import collections
+import hashlib
 import json
 import os
 import time
@@ -19,7 +20,7 @@ from pathlib import Path
 
 from nonebot.log import logger
 
-from ..config import DATA_DIR, config
+from ..config import DATA_DIR, config, IMAGES_DIR
 from ..utils import async_download_bytes, get_http_client
 
 GRAPHQL_URL = "https://api.stratz.com/graphql"
@@ -29,7 +30,7 @@ ICON_URL = "https://cdn.stratz.com/images/dota2/heroes/{short}_icon.png"
 QUERY = """
 query PlayerHeroPool($id: Long!) {
   player(steamAccountId: $id) {
-    steamAccount { name }
+    steamAccount { name avatar }
     matches(request: { take: 100 }) {
       players(steamAccountId: $id) {
         hero {
@@ -47,7 +48,7 @@ query PlayerHeroPool($id: Long!) {
 # 抓取结果缓存：按 steam 账号各存一份到 data/hero_pool/ 目录
 CACHE_DIR = DATA_DIR / "hero_pool"
 CACHE_MAX_AGE = 6 * 3600  # 6 小时
-CACHE_VERSION = 2  # 缓存结构版本（含 position 字段）；升级后旧缓存自动失效
+CACHE_VERSION = 3  # 缓存结构版本（含 position、avatar 字段）；升级后旧缓存自动失效
 
 
 class HeroPoolError(Exception):
@@ -75,7 +76,7 @@ def _cache_path(steam_id) -> Path:
 
 
 def _load_cache(cache_path: Path, key: tuple[int, int], now: float, max_age: float):
-    """读取缓存；命中且未过期返回 (player_name, matches)，否则 None。"""
+    """读取缓存；命中且未过期返回 (player_name, avatar, matches)，否则 None。"""
     if not cache_path.exists():
         return None
     try:
@@ -88,16 +89,17 @@ def _load_cache(cache_path: Path, key: tuple[int, int], now: float, max_age: flo
         return None
     if now - data.get("fetched_at", 0) > max_age:
         return None
-    return data.get("player_name"), data.get("matches") or []
+    return data.get("player_name"), data.get("avatar") or "", data.get("matches") or []
 
 
 def _save_cache(cache_path: Path, key: tuple[int, int], player_name: str,
-                matches: list[dict], now: float) -> None:
+                avatar: str, matches: list[dict], now: float) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(
         json.dumps(
             {"cache_version": CACHE_VERSION, "steam_id": key[0], "count": key[1],
-             "fetched_at": now, "player_name": player_name, "matches": matches},
+             "fetched_at": now, "player_name": player_name, "avatar": avatar,
+             "matches": matches},
             ensure_ascii=False, indent=2,
         ),
         encoding="utf-8",
@@ -156,12 +158,14 @@ async def _graphql_post(query: str, variables: dict, headers: dict) -> dict:
     return resp.json()
 
 
-def _parse_payload(payload: dict, steam_id) -> tuple[str, list[dict]]:
-    """把 GraphQL 响应解析为 (player_name, matches)。"""
+def _parse_payload(payload: dict, steam_id) -> tuple[str, str, list[dict]]:
+    """把 GraphQL 响应解析为 (player_name, avatar, matches)。"""
     if payload.get("errors"):
         raise HeroPoolError(f"Stratz GraphQL 返回错误：{payload['errors']}")
     player = (payload.get("data") or {}).get("player") or {}
-    player_name = (player.get("steamAccount") or {}).get("name") or "玩家"
+    account = player.get("steamAccount") or {}
+    player_name = account.get("name") or "玩家"
+    avatar = account.get("avatar") or ""
     matches = []
     for match in player.get("matches") or []:
         for p in match.get("players") or []:
@@ -174,15 +178,16 @@ def _parse_payload(payload: dict, steam_id) -> tuple[str, list[dict]]:
                     "position": p.get("position"),
                 })
                 break
-    return player_name, matches
+    return player_name, avatar, matches
 
 
 async def fetch_matches(steam_id, count=100, refresh=False,
                         cache_path: Path | None = None):
     """拉取玩家最近比赛数据：先尝试抓取 API，失败（网络/限流/解析错误）才回退本地缓存。
 
-    返回 (player_name, matches)：
+    返回 (player_name, avatar, matches)：
     - player_name：玩家昵称。
+    - avatar：玩家 steam 头像 URL（可能为空串）。
     - matches：每场比赛的英雄信息，含 {'name','display','short','position'}。
     """
     if cache_path is None:
@@ -205,14 +210,14 @@ async def fetch_matches(steam_id, count=100, refresh=False,
                     await asyncio.sleep(15 * (attempt + 1))
                     continue
                 raise
-        player_name, matches = _parse_payload(payload, steam_id)
+        player_name, avatar, matches = _parse_payload(payload, steam_id)
 
         # 抓取成功，写回缓存
         try:
-            _save_cache(cache_path, (int(steam_id), int(count)), player_name, matches, time.time())
+            _save_cache(cache_path, (int(steam_id), int(count)), player_name, avatar, matches, time.time())
         except Exception as e:
             logger.warning(f"英雄池缓存写入失败：{e}")
-        return player_name, matches
+        return player_name, avatar, matches
 
     except Exception as exc:
         # 抓取失败：默认回退本地缓存（若有）；refresh 则完全忽略缓存直接报错
@@ -223,7 +228,7 @@ async def fetch_matches(steam_id, count=100, refresh=False,
             logger.warning(
                 f"Stratz API 抓取失败（{exc.__class__.__name__}），回退本地缓存 {cache_path.name}"
             )
-            return cached[0], cached[1]
+            return cached[0], cached[1], cached[2]
         raise
 
 
@@ -270,7 +275,7 @@ def pos_distribution(matches: list[dict]) -> list[tuple[str | int, int]]:
 # ============================================================
 # 英雄头像
 # ============================================================
-ICON_CACHE_DIR = CACHE_DIR / "icons"
+ICON_CACHE_DIR = IMAGES_DIR / "icons"
 
 # 内存缓存：short -> RGBA 头像，避免同一次渲染（取主色 + 画头像）重复读盘/解码。
 # Dota2 英雄数量有限，不会被无限撑大。
@@ -304,4 +309,36 @@ async def load_icon_img(short: str):
         logger.warning(f"英雄头像下载/读取失败（{short}）：{e}")
         return None
     _icon_mem_cache[short] = img
+    return img
+
+
+# 玩家 steam 头像：按 URL 缓存（URL 哈希命名），避免每次渲染重复下载。
+_avatar_mem_cache: dict[str, object] = {}
+
+
+async def load_avatar_img(url: str):
+    """下载（并缓存）玩家 steam 头像为 Pillow RGBA 图；失败返回 None。
+
+    头像 URL 来自 Stratz 的 steamAccount.avatar；网络下载用共享 httpx 异步进行。
+    """
+    from PIL import Image
+
+    if not url:
+        return None
+    if url in _avatar_mem_cache:
+        return _avatar_mem_cache[url]
+    # URL 哈希作为缓存文件名，跨进程稳定（hashlib 不受 PYTHONHASHSEED 影响）
+    name = hashlib.md5(url.encode("utf-8")).hexdigest()[:16]
+    path = ICON_CACHE_DIR / f"avatar_{name}.png"
+    try:
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(
+                await async_download_bytes(url, timeout=config.d2w_download_timeout)
+            )
+        img = Image.open(path).convert("RGBA")
+    except Exception as e:
+        logger.warning(f"玩家头像下载/读取失败：{e}")
+        return None
+    _avatar_mem_cache[url] = img
     return img
