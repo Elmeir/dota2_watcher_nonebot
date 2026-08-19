@@ -19,6 +19,14 @@ from ..dota_dicts import (
 from . import match_report
 
 
+EXCLUDED_BENCHMARKS = {
+    "hero_healing_per_min",
+    "tower_damage",
+    "denies_per_min",
+    "last_hits_per_min",
+}
+
+
 def _mode_label(match_info: dict) -> tuple[str, str]:
     mode = GAME_MODE.get(match_info.get("game_mode"), "未知")
     lobby = LOBBY.get(match_info.get("lobby_type"), "未知")
@@ -119,7 +127,11 @@ def check_performance(player_list: list, win: bool) -> bool:
         total_avg_pct = 0.0
         for player in player_list:
             benchmarks = player.stats.get("benchmarks") or {}
-            pcts = [value.get("pct", 0) for value in benchmarks.values()]
+            pcts = [
+                value.get("pct", 0)
+                for name, value in benchmarks.items()
+                if name not in EXCLUDED_BENCHMARKS
+            ]
             if pcts:
                 total_avg_pct += sum(pcts) / len(pcts)
         return total_avg_pct / len(player_list) > config.d2w_benchmark_threshold

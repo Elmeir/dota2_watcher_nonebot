@@ -308,6 +308,11 @@ def convert_player(xp, duration, name2id):
     creeps_stacked = leading_int(hero_data_value(hero_data, "堆叠野怪"))
     rune_pickups = leading_int(hero_data_value(hero_data, "赏金符"))
 
+    kills = int(kda.get("kill") or 0)
+    deaths = int(kda.get("death") or 0)
+    assists = int(kda.get("assist") or 0)
+    kda_value = (kills + assists) if deaths == 0 else round((kills + assists) / deaths, 2)
+
     return {
         "player_slot": player_slot,
         "team_number": 0 if player_slot < 128 else 1,
@@ -316,9 +321,10 @@ def convert_player(xp, duration, name2id):
         "account_id": account_id,
         "personaname": xp.get("name") or "",
         "level": int(hero_info.get("level") or 0),
-        "kills": int(kda.get("kill") or 0),
-        "deaths": int(kda.get("death") or 0),
-        "assists": int(kda.get("assist") or 0),
+        "kills": kills,
+        "deaths": deaths,
+        "assists": assists,
+        "kda": kda_value,
         "last_hits": last_hits,
         "denies": denies,
         "creeps_stacked": creeps_stacked,
