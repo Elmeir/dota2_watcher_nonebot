@@ -51,4 +51,5 @@ class Player:
             "gpm": info.get("gold_per_min", 0),
             "xpm": info.get("xp_per_min", 0),
             "benchmarks": info.get("benchmarks"),
+            "xiaoheihe_score": info.get("xiaoheihe_score"),
         }

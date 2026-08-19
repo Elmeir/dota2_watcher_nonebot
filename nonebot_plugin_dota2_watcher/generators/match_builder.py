@@ -120,8 +120,14 @@ def generate_message(match_info: dict, player_list: list, ezmode: bool = False) 
 def check_performance(player_list: list, win: bool) -> bool:
     """判断本局战绩是正面还是负面。
 
-    优先使用 openDota 的 benchmark；不可用时退化为 KDA 判断。
+    优先使用小黑盒综合评分或 openDota 的 benchmark；不可用时退化为 KDA 判断。
     """
+    scores = [p.stats.get("xiaoheihe_score") for p in player_list]
+    scores = [s for s in scores if s is not None]
+    if scores:
+        # 小黑盒综合评分（0~100）归一化到 0~1 后与阈值比较
+        return sum(scores) / len(scores) / 100 > config.d2w_benchmark_threshold
+
     benchmark = player_list[0].stats.get("benchmarks")
     if benchmark:
         total_avg_pct = 0.0
