@@ -1,5 +1,6 @@
 """网络请求与通用工具。"""
 
+import json
 import os
 import ssl
 import sys
@@ -99,3 +100,23 @@ def download_file(url, filepath, timeout=None, headers=None, quiet=False, retrie
     with open(filepath, "wb") as f:
         f.write(body)
     return True
+
+
+def loadjson(filepath, default=None):
+    """读取 JSON 文件，成功返回解析结果，失败返回 default（默认空 dict）。
+
+    该工具被 match_report / core_build 等模块复用，作为统一读缓存入口。
+    """
+    if default is None:
+        default = {}
+    try:
+        with open(filepath, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
+def dumpjson(data, filepath):
+    """将数据以 UTF-8 缩进的 JSON 格式写入文件。"""
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)

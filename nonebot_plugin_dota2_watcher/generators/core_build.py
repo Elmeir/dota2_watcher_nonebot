@@ -38,10 +38,10 @@ else:
 # 所有目录 / URL / 缓存等配置统一从 config.py 读取。
 if __package__:
     from .. import config as _cfg
-    from ..utils import download_file
+    from ..utils import download_file, loadjson
 else:
     import config as _cfg
-    from utils import download_file
+    from utils import download_file, loadjson
 
 WORK_DIR = str(_cfg.BASE_DIR)
 IMAGES_DIR = str(_cfg.IMAGES_DIR)
@@ -143,17 +143,6 @@ THEMES = {"dark": THEME_DARK, "light": THEME_LIGHT}
 # ============================================================
 # 工具函数
 # ============================================================
-def loadjson(jsonfile, default=None):
-    """读取 JSON 文件，成功返回解析结果，失败返回 default（默认空 dict）。"""
-    if default is None:
-        default = {}
-    try:
-        with open(jsonfile, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
-
-
 def _download_to(url, filepath, quiet=False):
     """下载 url 内容到本地文件，成功返回 True，失败返回 False。"""
     return download_file(

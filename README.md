@@ -24,7 +24,7 @@ pip install httpx aiohttp Pillow fonttools playwright
 
 # 3. 安装 NoneBot 插件
 nb plugin install nonebot-plugin-apscheduler
-nb plugin install nonebot-plugin-datastore
+nb plugin install nonebot-plugin-localstore
 
 # 4. 将本插件目录放入 NoneBot2 项目的 plugins/ 目录
 ```
@@ -45,7 +45,7 @@ from nonebot.adapters.onebot.v11 import Adapter
 nonebot.init()
 driver = nonebot.get_driver()
 driver.register_adapter(Adapter)
-nonebot.load_plugin("dota2_watcher_nonebot")  # 或使用 plugins 目录自动加载
+nonebot.load_plugin("nonebot_plugin_dota2_watcher")  # 或使用 plugins 目录自动加载
 nonebot.run()
 ```
 
@@ -66,6 +66,7 @@ nonebot.run()
 | `D2W_TI_POLL_INTERVAL`         | TI 赛果轮询间隔（秒）                                                                 | `10`       |
 | `D2W_NEWS_POLL_INTERVAL`       | 新闻轮询间隔（秒）                                                                    | `60`       |
 | `D2W_MATCH_POLL_INTERVAL`      | 玩家比赛轮询间隔（秒）                                                                  | `60`       |
+| `D2W_HISTORY_CONCURRENCY`     | 拉取玩家比赛历史的并发上限（避免触发 Steam 限流）                                        | `3`        |
 | `D2W_CACHE_EXPIRE_SECONDS`     | D2PT / 玩家数据缓存时长（秒）                                                           | `3600`     |
 | `D2W_CORE_BUILD_CACHE_SECONDS` | 核心出装数据缓存时长（秒）                                                                | `86400`    |
 | `D2W_DOWNLOAD_TIMEOUT`         | 下载超时（秒）                                                                      | `60`       |
@@ -123,6 +124,7 @@ nonebot_plugin_dota2_watcher/     # 插件包
 ├── datasources/             # 外部数据源
 │   ├── request_match.py     # Steam / OpenDota 请求
 │   ├── d2pt.py              # D2PT 数据
+│   ├── xiaoheihe.py         # 小黑盒比赛数据源（OpenDota 兜底）
 │   └── ti_results.py        # TI 赛果
 ├── generators/              # 图片 / 文本生成
 │   ├── core_build.py        # 核心出装图生成

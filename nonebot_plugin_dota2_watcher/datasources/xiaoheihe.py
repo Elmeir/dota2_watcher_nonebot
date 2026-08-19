@@ -200,6 +200,7 @@ def item_name_from_url(url):
 
 
 def item_id(url, name2id):
+    """从物品图片 URL 解析出物品 ID；解析失败返回 0。"""
     name = item_name_from_url(url)
     if not name:
         return 0
@@ -214,6 +215,7 @@ def leading_int(value):
 
 
 def hero_data_value(hero_data, desc):
+    """从 hero_data 列表里取指定 desc 对应的 value；未命中返回空串。"""
     for hd in hero_data or []:
         if hd.get("desc") == desc:
             return hd.get("value", "")

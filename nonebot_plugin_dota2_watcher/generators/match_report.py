@@ -7,7 +7,6 @@ Dota 2 战报图片生成器（异步版）
 
 import argparse
 import asyncio
-import json
 import logging
 import os
 import re
@@ -24,10 +23,12 @@ from PIL import Image, ImageDraw, ImageFont
 # 所有目录 / URL / 超时等配置统一从 config.py 读取。
 if __package__:
     from .. import config as _cfg
-    from ..utils import download_file
+    from ..dota_dicts import GAME_MODE, LOBBY, REGION
+    from ..utils import download_file, dumpjson, loadjson
 else:
     import config as _cfg
-    from utils import download_file
+    from dota_dicts import GAME_MODE, LOBBY, REGION
+    from utils import download_file, dumpjson, loadjson
 
 WORK_DIR = str(_cfg.BASE_DIR)
 IMAGES_DIR = str(_cfg.IMAGES_DIR)
@@ -65,26 +66,6 @@ logger = init_logger("dota2_match_report")
 def set_verbose():
     """将日志级别调整为 INFO，用于命令行调试输出。"""
     logger.setLevel(logging.INFO)
-
-
-# ============================================================
-# 工具函数
-# ============================================================
-def loadjson(jsonfile, default=None):
-    """从 JSON 文件读取数据，失败时返回默认值。"""
-    if default is None:
-        default = {}
-    try:
-        with open(jsonfile, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
-
-
-def dumpjson(jsondata, jsonfile):
-    """将数据以 UTF-8 缩进的 JSON 格式写入文件。"""
-    with open(jsonfile, "w", encoding="utf-8") as f:
-        json.dump(jsondata, f, ensure_ascii=False, indent=4)
 
 
 # ============================================================
@@ -448,70 +429,8 @@ async def refresh_dicts(match=None):
         await asyncio.gather(*tasks)
 
 
-GAME_MODE = {
-    0: "No Game Mode",
-    1: "全英雄选择",
-    2: "队长模式",
-    3: "随机征召",
-    4: "小黑屋",
-    5: "全部随机",
-    7: "万圣节活动",
-    8: "反队长模式",
-    9: "贪魔活动",
-    10: "教程",
-    11: "中路模式",
-    12: "生疏模式",
-    13: "新手模式",
-    14: "Compendium Matchmaking",
-    15: "自定义游戏",
-    16: "队长征召",
-    17: "平衡征召",
-    18: "技能征召",
-    19: "活动模式",
-    20: "全英雄死亡随机",
-    21: "中路SOLO",
-    22: "全英雄选择",
-    23: "加速模式",
-}
-
-LOBBY = {
-    -1: "非法ID",
-    0: "普通匹配",
-    1: "练习",
-    2: "锦标赛",
-    3: "教程",
-    4: "合作对抗电脑",
-    5: "组排模式",
-    6: "单排模式",
-    7: "天梯匹配",
-    8: "中路SOLO",
-    12: "天陨旦",
-}
-
-REGION = {
-    "region_0": "自动",
-    "region_1": "美国西部",
-    "region_2": "美国东部",
-    "region_3": "卢森堡",
-    "region_5": "新加坡",
-    "region_6": "迪拜",
-    "region_7": "澳大利亚",
-    "region_8": "斯德哥尔摩",
-    "region_9": "奥地利",
-    "region_10": "巴西",
-    "region_11": "南非",
-    "region_12": "电信（上海）",
-    "region_13": "联通（一）",
-    "region_14": "智利",
-    "region_15": "秘鲁",
-    "region_16": "印度",
-    "region_17": "电信（广东）",
-    "region_18": "电信（浙江）",
-    "region_19": "日本",
-    "region_20": "电信（华中）",
-    "region_25": "联通（二）",
-}
-
+# 游戏模式 / 房间类型 / 服务器名称等静态字典统一来自 dota_dicts（单一数据源），
+# 与播报文本（match_builder）、D2PT 等模块保持一致，避免多处维护造成漂移。
 SKILL_LEVEL = {1: "Normal", 2: "High", 3: "Very High"}
 
 RANK_NAMES = {

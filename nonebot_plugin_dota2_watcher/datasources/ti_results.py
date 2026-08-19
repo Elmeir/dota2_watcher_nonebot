@@ -87,20 +87,14 @@ def _urlopen_with_retry(req, timeout, retries=3, delay=1.0):
             time.sleep(delay)
 
 
-def fetch_league_data(url=API_URL, headers=HEADERS, retries=3):
+def fetch_league_data(url=API_URL, headers=HEADERS):
     """请求官方 API，返回解析后的 JSON 字典。
 
-    参数 retries: 网络异常重试次数（默认 3 次）。
-      - 0 表示不重试，直接发起一次请求。
-      - 正数表示最多重试 retries 次（含首次）。
+    不做网络重试：失败直接抛出异常，由调用方决定是否回退/重试。
     """
     req = urllib.request.Request(url, headers=headers)
-    if retries:
-        with _urlopen_with_retry(req, timeout=5, retries=retries) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    else:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
     if not isinstance(data, dict):
         # 官方 API 偶发返回 null/空，需显式报错供调用方回退/重试
         raise ValueError(f"官方 API 返回非字典数据: {type(data).__name__}")
@@ -206,8 +200,8 @@ def watch_finished(interval):
     while True:
         stamp = time.strftime("%H:%M:%S")
         try:
-            # 轮询监控不需要网络重试：失败即走外层 sleep(interval) 兜底
-            data = fetch_league_data(retries=0)
+            # 轮询监控不做网络重试：失败即走外层 sleep(interval) 兜底
+            data = fetch_league_data()
             team_map = build_team_map(data.get("node_groups", []))
             games = collect_finished_games(data, team_map)
         except Exception as exc:
@@ -333,9 +327,8 @@ async def watch_latest_result(mode="series", debug=False):
         return ""
 
     try:
-        # 轮询监控不需要网络重试：失败即快速返回，由外层按重试间隔再试，
-        # 避免内置重试（每次 sleep 1s）造成的延迟导致错过比赛。
-        data = await _to_thread(fetch_league_data, retries=0)
+        # 轮询监控不做网络重试：失败即快速返回，由外层按重试间隔再试
+        data = await _to_thread(fetch_league_data)
     except Exception as exc:
         print(f"[!] 获取比赛数据失败: {exc}", file=sys.stderr)
         _watch_next_check_ts = now + WATCH_INTERVAL_RETRY

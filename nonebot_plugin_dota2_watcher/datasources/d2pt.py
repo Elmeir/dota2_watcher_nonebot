@@ -18,6 +18,7 @@ _URL = D2PT_POS_URL
 
 
 def _load_json(path: Path, default=None):
+    """读取本地 JSON 缓存；解析失败或文件损坏时返回 default。"""
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
