@@ -838,11 +838,29 @@ async def _fetch_match_json(session, match_id, retries=3):
     return None
 
 
-async def get_match(match_id, wait=True, timeout=None, force=False):
-    """获取比赛数据：优先本地缓存，必要时从 OpenDota 拉取并等待分析完成。"""
+async def get_match(match_id, wait=True, timeout=None, force=False, match_data=None):
+    """获取比赛数据：优先使用调用方已拉取的数据，其次本地缓存，必要时从 OpenDota 拉取。
+
+    match_data 由调用方（如轮询新比赛阶段二）传入已获取的比赛详情，
+    可避免生成战报图片时对 OpenDota 主源场次重复请求；为 None 时保持原有流程。
+    """
     if timeout is None:
         timeout = _cfg.config.d2w_match_analysis_timeout
     match_file = os.path.join(MATCHES_DIR, f"{match_id}.json")
+
+    if match_data is not None:
+        if not match_data.get("players"):
+            return None
+        if match_data.get("game_mode") in (15, 19):
+            logger.info("活动模式，跳过分析")
+            return None
+        if match_data["players"][0].get("damage_inflictor_received", None) is None:
+            # 分析不完整：与下方 force 分支一致，标记后按简化版处理
+            match_data["from_valve"] = True
+        dumpjson(match_data, match_file)
+        logger.info(f"比赛 {match_id} 使用调用方传入的数据")
+        return match_data
+
     if os.path.exists(match_file):
         match = loadjson(match_file)
         received = match["players"][0].get("damage_inflictor_received", None)
@@ -981,7 +999,7 @@ def get_team_by_slot(slot):
 # 战报图片生成（异步）
 # ============================================================
 async def generate_match_image(
-    match_id, output_path=None, wait=True, timeout=120, force=False, scale=1.4
+    match_id, output_path=None, wait=True, timeout=120, force=False, scale=1.4, match_data=None
 ):
     """根据比赛编号生成战报图片，返回图片路径或 False 表示失败。"""
     t0 = time.time()
@@ -993,7 +1011,7 @@ async def generate_match_image(
             logger.info(f"检测到已生成的完整战报缓存，直接返回: {cached_complete}")
             return cached_complete
 
-    match = await get_match(match_id, wait=wait, timeout=timeout, force=force)
+    match = await get_match(match_id, wait=wait, timeout=timeout, force=force, match_data=match_data)
     if match is False:
         logger.error("解析失败（Replay not found），无法生成战报")
         return False

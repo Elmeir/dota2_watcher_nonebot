@@ -5,6 +5,7 @@
 """
 
 import asyncio
+from dataclasses import dataclass, field
 
 from nonebot import get_bots
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
@@ -26,6 +27,24 @@ _last_news_title = ""
 # Steam GetMatchHistory 接口存在速率限制，并发过高易触发 429/503 导致请求失败，
 # 因此用信号量限制同批并发拉取比赛历史的数量（并发上限见 config.d2w_history_concurrency）。
 _history_semaphore = asyncio.Semaphore(config.d2w_history_concurrency)
+
+
+@dataclass
+class NewMatch:
+    """一场待处理的新比赛：所属群 + 比赛 ID + 订阅玩家 + 比赛详情。
+
+    match_info 在阶段二拉取后填充，供战报文本与图片生成复用，避免重复请求数据源。
+    """
+
+    gid: str
+    match_id: int
+    players: list[Player] = field(default_factory=list)
+    match_info: dict | None = None
+
+    def has_valid_info(self) -> bool:
+        """比赛详情是否有效：已成功拉取且含 game_mode 等必要字段。"""
+        info = self.match_info
+        return bool(info) and not isinstance(info, Exception) and "game_mode" in info
 
 
 # ---------------------------------------------------------------
@@ -155,19 +174,20 @@ async def _fetch_history(player: Player) -> int | None:
         return None
 
 
-async def _report_match(gid: str, match_id: int, players: list, match_info: dict) -> None:
+async def _report_match(match: NewMatch) -> None:
     """生成并发送一场比赛的战报（图片 + 一句话播报）。"""
     try:
-        text = match_builder.generate_message(match_info, players, ezmode=True)
+        text = match_builder.generate_message(match.match_info, match.players, ezmode=True)
     except Exception:
-        logger.exception(f"生成战报文本失败: {match_id}")
+        logger.exception(f"生成战报文本失败: {match.match_id}")
         text = None
 
     pic = None
     try:
-        pic = await match_builder.generate_report_img(match_id, force=True)
+        # 复用阶段二已拉取的 match_info，避免图片生成时再次请求 OpenDota
+        pic = await match_builder.generate_report_img(match.match_id, force=True, match_data=match.match_info)
     except Exception:
-        logger.exception(f"生成战报图片失败: {match_id}")
+        logger.exception(f"生成战报图片失败: {match.match_id}")
 
     msg = Message()
     if pic:
@@ -182,9 +202,9 @@ async def _report_match(gid: str, match_id: int, players: list, match_info: dict
         return
     for bot in bots.values():
         try:
-            await bot.send_group_msg(group_id=int(gid), message=msg)
+            await bot.send_group_msg(group_id=int(match.gid), message=msg)
         except Exception:
-            logger.exception(f"发送战报到群 {gid} 失败")
+            logger.exception(f"发送战报到群 {match.gid} 失败")
 
 
 # ---------------------------------------------------------------
@@ -250,21 +270,22 @@ async def poll_new_matches() -> None:
     )
     history = dict(zip((p.short_steamID for p in unique_list), fetched))
 
-    new_matches: dict[str, dict[int, list[Player]]] = {}
-    match_ids: set[int] = set()
+    # 汇总新比赛（同一群、同一场比赛的订阅玩家合并到同一个 NewMatch）
+    new_matches: dict[tuple[str, int], NewMatch] = {}
     for gid, player in watched:
         result = history.get(player.short_steamID)
         if isinstance(result, Exception) or not result:
             continue
         if result == player.last_DOTA2_match_ID:
             continue
-        new_matches.setdefault(gid, {}).setdefault(result, []).append(player)
-        match_ids.add(result)
+        match = new_matches.setdefault((gid, result), NewMatch(gid=gid, match_id=result))
+        match.players.append(player)
 
-    if not match_ids:
+    if not new_matches:
         return
 
     # 阶段二：并发获取每场新比赛的详情
+    match_ids = {m.match_id for m in new_matches.values()}
     infos = await asyncio.gather(
         *(request_match_info_opendota(mid) for mid in match_ids),
         return_exceptions=True,
@@ -272,18 +293,17 @@ async def poll_new_matches() -> None:
     info_map = dict(zip(match_ids, infos))
 
     changed = False
-    for gid, matches in new_matches.items():
-        for match_id, players in matches.items():
-            match_info = info_map.get(match_id)
-            if isinstance(match_info, Exception) or not match_info or "game_mode" not in match_info:
-                continue
-            for player in players:
-                player.last_DOTA2_match_ID = match_id
-            changed = True
-            # 自定义/活动等模式不播报
-            if match_info.get("game_mode") in config.d2w_game_mode:
-                continue
-            await _report_match(gid, match_id, players, match_info)
+    for match in new_matches.values():
+        match.match_info = info_map.get(match.match_id)
+        if not match.has_valid_info():
+            continue
+        for player in match.players:
+            player.last_DOTA2_match_ID = match.match_id
+        changed = True
+        # 自定义/活动等模式不播报
+        if match.match_info.get("game_mode") in config.d2w_game_mode:
+            continue
+        await _report_match(match)
 
     if changed:
         store.save()

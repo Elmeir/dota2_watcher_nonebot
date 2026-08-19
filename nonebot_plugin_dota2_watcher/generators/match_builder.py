@@ -153,13 +153,16 @@ def check_performance(player_list: list, win: bool) -> bool:
 _report_lock = asyncio.Lock()
 
 
-async def generate_report_img(match_id, force: bool = False):
+async def generate_report_img(match_id, force: bool = False, match_data=None):
     """生成战报图片并返回本地路径；失败返回 None/False。
 
     使用全局锁串行化图片生成，避免多个协程并发操作共享的 aiohttp 会话。
+    match_data 为调用方已拉取的比赛详情，传入可避免图片生成时重复请求数据源。
     """
     async with _report_lock:
         try:
-            return await match_report.generate_match_image(match_id, force=force)
+            return await match_report.generate_match_image(
+                match_id, force=force, match_data=match_data
+            )
         finally:
             await match_report.close_session()
