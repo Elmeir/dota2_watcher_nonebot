@@ -276,6 +276,7 @@ def pos_distribution(matches: list[dict]) -> list[tuple[str | int, int]]:
 # 英雄头像
 # ============================================================
 ICON_CACHE_DIR = IMAGES_DIR / "icons"
+AVATAR_CACHE_DIR = IMAGES_DIR / "avatars"
 
 # 内存缓存：short -> RGBA 头像，避免同一次渲染（取主色 + 画头像）重复读盘/解码。
 # Dota2 英雄数量有限，不会被无限撑大。
@@ -329,7 +330,7 @@ async def load_avatar_img(url: str):
         return _avatar_mem_cache[url]
     # URL 哈希作为缓存文件名，跨进程稳定（hashlib 不受 PYTHONHASHSEED 影响）
     name = hashlib.md5(url.encode("utf-8")).hexdigest()[:16]
-    path = ICON_CACHE_DIR / f"avatar_{name}.png"
+    path = AVATAR_CACHE_DIR / f"avatar_{name}.png"
     try:
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)

@@ -442,6 +442,12 @@ async def request_match_info_xiaoheihe(match_id):
     name2id = await load_item_name_to_id()
     match = convert_match(data["result"], match_id, name2id)
 
+    # players 为空说明上游没有返回玩家数据，等价于无数据，抛出异常
+    if not match["players"]:
+        raise DOTA2HTTPError(
+            f"小黑盒回退数据源返回异常：players 为空（match_id={match_id}）"
+        )
+
     # 写入 match_report 使用的比赛缓存，便于战报图片生成器直接复用。
     try:
         os.makedirs(MATCHES_DIR, exist_ok=True)

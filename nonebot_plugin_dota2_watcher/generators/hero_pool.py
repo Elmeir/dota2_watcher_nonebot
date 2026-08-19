@@ -54,7 +54,7 @@ THEMES: dict[str, dict] = {
         "inner_opacity": 0.52,              # 内环填充不透明度
         "inner_unknown": "hsl(0,0%,0%)",    # 内环未知扇区颜色（深灰）
         "inner_unknown_alpha": 0.2,         # 内环未知扇区透明度（稍作提亮以便辨识）
-        "watermark": "#DCE2E9",             # 环心玩家名水印颜色（中性灰）
+        "watermark": "#DFE1E2",             # 环心玩家名水印颜色（中性灰）
         "grad_center_light": 0.70,          # 头像渐变中心亮度（亮）
         "grad_edge_light": 0.42,            # 头像渐变外缘亮度（软过渡，避免发灰）
         # 位置扇区填充色（亮色主题稍亮、对比度更好）
