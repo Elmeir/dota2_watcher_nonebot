@@ -1528,9 +1528,13 @@ def _render_match_image(match, font_paths, scale, output_path, match_id, t0):
         draw.text((title_pos[0], title_pos[1]), "摸", font=font, fill=(200, 190, 230))
         title_pos[0] += font_getsize(font, "摸")[0] + _s(1)
 
+    if match.get("data_source") == "xiaoheihe":
+        footer = "※比赛数据来自小黑盒，DOTA2游戏图片素材版权归Valve所有。"
+    else:
+        footer = "※录像分析数据来自OpenDota，DOTA2游戏图片素材版权归Valve所有。"
     draw.text(
         (_s(10), _s(880)),
-        "※录像分析数据来自opendota.com，DOTA2游戏图片素材版权归Valve所有",
+        footer,
         font=font,
         fill=(128, 128, 128),
     )

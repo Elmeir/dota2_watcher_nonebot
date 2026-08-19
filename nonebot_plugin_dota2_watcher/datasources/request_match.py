@@ -9,6 +9,8 @@ from ..config import (
 )
 from ..utils import DOTA2HTTPError, get_http_client, prompt_error
 
+from .xiaoheihe import request_match_info_xiaoheihe
+
 # Steam Web API Key（未配置时相关播报会报错）
 API_KEY = config.d2w_steam_api_key
 
@@ -57,18 +59,24 @@ async def request_match_info_steam(match_id, api_key: str | None = None):
         raise DOTA2HTTPError("DOTA2开黑战报生成失败")
 
 
-async def request_match_info_opendota(match_id, api_key: str | None = None):
-    """通过 openDota 获取比赛详情（无 API 的免费版每天仅 2000 次访问）。"""
-    url = OPENDOTA_MATCH_URL.format(match_id=match_id)
+async def _fetch_opendota_match(match_id):
+    """拉取 openDota 比赛详情；网络失败、解析失败或无玩家数据时返回 None。"""
     client = await get_http_client()
     try:
-        response = await client.get(url)
+        response = await client.get(OPENDOTA_MATCH_URL.format(match_id=match_id))
+        data = response.json()
     except Exception:
-        raise _network_error()
-    try:
-        return response.json()
-    except Exception:
-        raise DOTA2HTTPError("DOTA2开黑战报生成失败")
+        return None
+    return data if isinstance(data, dict) and data.get("players") else None
+
+
+async def request_match_info_opendota(match_id, api_key: str | None = None):
+    """通过 openDota 获取比赛详情；获取不到时回退到小黑盒公开接口。
+
+    openDota 免费版每天仅 2000 次访问，且偶发 522/超时；当 openDota 不可用、
+    返回空或没有玩家数据时，改由小黑盒公开接口兜底（无需 Cookie / 登录）。
+    """
+    return await _fetch_opendota_match(match_id) or await request_match_info_xiaoheihe(match_id)
 
 
 async def request_news():

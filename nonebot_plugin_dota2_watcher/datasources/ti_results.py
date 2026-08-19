@@ -419,7 +419,7 @@ async def watch_latest_result(mode="series", debug=False):
 
     if not pending:
         return ""
-    text = "\n".join(f"[TI] {p}" if i == 0 else p for i, p in enumerate(pending))
+    text = "\n".join(f"[ti] {p}" if i == 0 else p for i, p in enumerate(pending))
     return text
 
 

@@ -47,7 +47,7 @@ class Config(BaseModel):
     # 拉取玩家比赛历史时的并发上限（Steam 接口存在速率限制，过大易触发 429/503）
     d2w_history_concurrency: int = 3
     # 数据缓存时长（秒）
-    d2w_cache_expire_seconds: int = 3600  # D2PT 位置数据 / 玩家数据缓存
+    d2w_cache_expire_seconds: int = 3600  # D2PT 位置数据缓存（1 小时）
     d2w_core_build_cache_seconds: int = 86400  # 核心出装数据缓存（24 小时）
     # 网络 / 下载 / 分析超时（秒）
     d2w_download_timeout: int = 60
