@@ -1,5 +1,6 @@
 """网络请求与通用工具。"""
 
+import asyncio
 import json
 import os
 import ssl
@@ -56,6 +57,7 @@ async def get_http_client() -> httpx.AsyncClient:
     if _client is None or _client.is_closed:
         _client = httpx.AsyncClient(
             timeout=config.d2w_timeout,
+            verify=_UNVERIFIED_SSL_CONTEXT,  # 同 download_bytes：不校验证书
             **_proxies_kwargs(),
         )
     return _client
@@ -85,6 +87,31 @@ def download_bytes(url, timeout=None, headers=None, retries=1):
             last_exc = e
             if attempt < retries - 1:
                 time.sleep(1.0)
+    raise last_exc
+
+
+async def async_download_bytes(url, timeout=None, headers=None, retries=1):
+    """异步下载 url 内容为字节（不校验 SSL，用于公开素材）。
+
+    用共享的 httpx.AsyncClient 请求，不阻塞事件循环；沿用与 download_bytes 一致的
+    重试与「不校验证书」策略。仅命中冷缓存（真正走网络）时才有收益，磁盘缓存命中时
+    不会触发。最后一次失败抛出异常。
+    """
+    client = await get_http_client()
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            resp = await client.get(
+                url,
+                timeout=timeout,
+                headers=headers or _DEFAULT_HEADERS,  # client 已配置不校验证书
+            )
+            resp.raise_for_status()
+            return resp.content
+        except Exception as e:
+            last_exc = e
+            if attempt < retries - 1:
+                await asyncio.sleep(1.0)
     raise last_exc
 
 

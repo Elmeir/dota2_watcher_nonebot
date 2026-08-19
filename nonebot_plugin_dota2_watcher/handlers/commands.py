@@ -26,6 +26,7 @@ d2pt_cmd = on_command("d2pt", aliases={"D2PT"}, priority=10, block=True)
 report_cmd = on_command("战报", priority=10, block=True)
 build_cmd = on_command("出装", priority=10, block=True)
 ti_cmd = on_command("ti", aliases={"TI"}, priority=10, block=True)
+hero_pool_cmd = on_command("英雄池", priority=10, block=True)
 subscribe_cmd = on_command(
     "订阅", priority=10, block=True, permission=GROUP_ADMIN | GROUP_OWNER | SUPERUSER
 )
@@ -145,6 +146,23 @@ async def handle_ti():
 
 
 # ---------------------------------------------------------------
+# /英雄池
+# ---------------------------------------------------------------
+@hero_pool_cmd.handle()
+async def handle_hero_pool(event: GroupMessageEvent):
+    args = _args(event)
+    if len(args) != 1:
+        await hero_pool_cmd.finish("请输入：/英雄池 [steam_id 或 玩家昵称]")
+    try:
+        path = await service.hero_pool_image(event.group_id, args[0])
+    except ValueError as e:
+        await hero_pool_cmd.finish(str(e))
+    if path:
+        await hero_pool_cmd.finish(MessageSegment.image(file=path))
+    await hero_pool_cmd.finish("英雄池生成失败")
+
+
+# ---------------------------------------------------------------
 # /订阅 新闻|ti：切换新闻/TI 订阅开关（管理员以上）
 # ---------------------------------------------------------------
 @subscribe_cmd.handle()
@@ -173,6 +191,7 @@ _HELP_TEXT = (
     "/战报 [比赛编号]：生成开黑战报图片\n"
     "/出装 [英雄名] [位置1-5] [dark|light]：核心出装图\n"
     "/ti：TI 赛事战报图片\n"
+    "/英雄池 [steam_id 或 玩家昵称]：生成英雄池环形图\n"
     "/订阅 新闻|ti：切换新闻/TI 订阅开关（管理员以上）"
 )
 

@@ -176,9 +176,13 @@ def generate_abilities():
     return True
 
 
-def ensure_data_file():
+async def ensure_data_file():
     """检查 d2pt_core_build.json 是否存在或超过 24 小时，需要时从远程下载。
-    同时同步更新天赋中文名文件 talents_cn.json，并确保技能映射 abilities.json 存在。"""
+    同时同步更新天赋中文名文件 talents_cn.json，并确保技能映射 abilities.json 存在。
+
+    网络下载用 asyncio.to_thread 丢到线程池，避免阻塞事件循环；
+    本地文件读取/生成仍保持同步（快且无 I/O 等待）。
+    """
     global TALENTS_CN, ABILITIES
     need_download = False
     if not os.path.exists(DATA_FILE):
@@ -190,14 +194,14 @@ def ensure_data_file():
 
     if need_download:
         print(f"正在更新数据文件: {DATA_URL}")
-        if _download_to(DATA_URL, DATA_FILE):
+        if await asyncio.to_thread(_download_to, DATA_URL, DATA_FILE):
             print(f"数据文件已更新: {DATA_FILE}")
         elif not os.path.exists(DATA_FILE):
             print(f"错误: 本地数据文件 {DATA_FILE} 不存在", file=sys.stderr)
 
         # 与主数据同步更新天赋中文名
         print(f"正在同步更新天赋中文名: {TALENTS_CN_URL}")
-        if _download_to(TALENTS_CN_URL, TALENTS_CN_FILE):
+        if await asyncio.to_thread(_download_to, TALENTS_CN_URL, TALENTS_CN_FILE):
             print(f"天赋中文名已更新: {TALENTS_CN_FILE}")
         elif not os.path.exists(TALENTS_CN_FILE):
             print(f"警告: 本地天赋中文名文件 {TALENTS_CN_FILE} 不存在", file=sys.stderr)
@@ -208,14 +212,16 @@ def ensure_data_file():
     # 确保技能映射存在：仅在 abilities.json 缺失时，用 npc_ability_ids.txt 本地生成（不从仓库拉取）
     if not os.path.exists(ABILITIES_FILE):
         if not os.path.exists(NPC_ABILITY_IDS_FILE):
-            _download_sources(NPC_ABILITY_IDS_URLS, NPC_ABILITY_IDS_FILE)
+            await asyncio.to_thread(
+                _download_sources, NPC_ABILITY_IDS_URLS, NPC_ABILITY_IDS_FILE
+            )
         if os.path.exists(NPC_ABILITY_IDS_FILE):
             generate_abilities()
             # 生成完成后删除临时源文件，只保留 abilities.json
             os.remove(NPC_ABILITY_IDS_FILE)
     ABILITIES = loadjson(ABILITIES_FILE)
-    # 物品映射：items.json 可能缺失（如数据目录迁移后），兜底保证其就绪
-    ensure_items_cache()
+    # 物品映射：items.json 可能缺失（如数据目录迁移后），兜底保证其就绪（内部同样含网络下载）
+    await asyncio.to_thread(ensure_items_cache)
 
 
 def _avg_time_minutes(time_str):
@@ -1100,7 +1106,7 @@ async def generate_image(
     手动关闭浏览器（可选）：
         await close_shared_browser()
     """
-    ensure_data_file()
+    await ensure_data_file()
     data = loadjson(DATA_FILE)
     if not data:
         print(f"错误: 无法读取数据文件 {DATA_FILE}", file=sys.stderr)
@@ -1176,7 +1182,9 @@ async def generate_image(
     core_win_rate = pos_data.get("wr")
 
     theme_dict = THEMES.get(theme, THEME_DARK)
-    html = build_html(
+    # build_html 内部含技能/物品图标的同步下载（本地缺失时），丢到线程池避免阻塞事件循环
+    html = await asyncio.to_thread(
+        build_html,
         hero_name_cn,
         pos_num,
         core_build,

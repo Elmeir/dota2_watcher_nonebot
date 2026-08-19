@@ -9,6 +9,7 @@
 - **新闻推送**：DOTA2 官方新闻出现新头条时自动向群广播。
 - **TI 赛事**：定时拉取 TI 赛果并推送，支持 `/ti` 查看实时战报图片。
 - **D2PT 出装**：查询 D2PT 各位置胜率 / 线优数据，以及指定英雄的核心出装图片（支持明暗主题）。
+- **英雄池**：通过 Stratz 数据生成玩家最近比赛的英雄池环形图（含出场占比与位置占比内环）。
 - **播报开关**：按群 / 按玩家开启或关闭播报（昵称填「全体」可一次控制全部）。
 
 ## 安装
@@ -71,6 +72,7 @@ nonebot.run()
 | `D2W_CORE_BUILD_CACHE_SECONDS` | 核心出装数据缓存时长（秒）                                                                | `86400`    |
 | `D2W_DOWNLOAD_TIMEOUT`         | 下载超时（秒）                                                                      | `60`       |
 | `D2W_MATCH_ANALYSIS_TIMEOUT`   | OpenDota 录像分析等待上限（秒）                                                         | `120`      |
+| `D2W_STRATZ_TOKEN`             | Stratz GraphQL API Token（`/英雄池` 使用），[申请地址](https://stratz.com/api)           | 空          |
 
 > 运行期数据与缓存目录由 [nonebot-plugin-localstore](https://github.com/nonebot/plugin-localstore) 统一管理，默认写入系统用户数据目录；如需自定义，可设置 `LOCALSTORE_DATA_DIR` / `LOCALSTORE_CACHE_DIR`。
 
@@ -100,10 +102,11 @@ LOCALSTORE_CACHE_DIR=./cache   # 可选：图片/战报等可再生缓存目录
 | `/战报 [比赛编号]`                      | 生成开黑战报图片                 | 任意  |
 | `/出装 [英雄名] [位置1-5] [dark\|light]` | 生成核心出装图片                 | 任意  |
 | `/ti`                             | 查看 TI 赛事战报图片             | 任意  |
+| `/英雄池 [steam_id 或 玩家昵称]`        | 生成玩家英雄池环形图              | 任意  |
 | `/订阅 新闻`                          | 开启 / 关闭官方新闻订阅            | 管理员 |
 | `/订阅 ti`                          | 开启 / 关闭 TI 赛事订阅          | 管理员 |
 
-> 示例：`/添加刀塔玩家 萧瑟先辈 898754153`、`/出装 敌法师 1 dark`、`/战报 1000000000`。
+> 示例：`/添加刀塔玩家 萧瑟先辈 898754153`、`/出装 敌法师 1 dark`、`/战报 1000000000`、`/英雄池 277774684`。
 
 ## 目录结构
 
@@ -125,11 +128,13 @@ nonebot_plugin_dota2_watcher/     # 插件包
 │   ├── request_match.py     # Steam / OpenDota 请求
 │   ├── d2pt.py              # D2PT 数据
 │   ├── xiaoheihe.py         # 小黑盒比赛数据源（OpenDota 兜底）
-│   └── ti_results.py        # TI 赛果
+│   ├── ti_results.py        # TI 赛果
+│   └── hero_pool.py         # Stratz 英雄池数据
 ├── generators/              # 图片 / 文本生成
 │   ├── core_build.py        # 核心出装图生成
 │   ├── match_builder.py     # 开黑战报生成
 │   ├── match_report.py      # 战报图片绘制
+│   ├── hero_pool.py         # 英雄池环形图生成
 │   └── shared_browser.py    # 共享 Playwright 浏览器
 ```
 

@@ -87,7 +87,11 @@ async def request_news():
         response = await client.get(url)
     except Exception:
         raise _network_error()
+    prompt_error(response, url)
     try:
         return response.json()
     except Exception:
-        raise DOTA2HTTPError("DOTA2新闻更新失败")
+        raise DOTA2HTTPError(
+            f"DOTA2新闻更新失败：HTTP {response.status_code}，返回内容不是 JSON"
+            f"（前 {min(len(response.text), 80)} 字节：{response.text[:80]!r}）"
+        )

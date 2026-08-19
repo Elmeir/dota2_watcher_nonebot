@@ -52,6 +52,9 @@ class Config(BaseModel):
     # 网络 / 下载 / 分析超时（秒）
     d2w_download_timeout: int = 60
     d2w_match_analysis_timeout: int = 120  # openDota 录像分析等待上限
+    # Stratz GraphQL API Token（/英雄池 使用，申请地址 https://stratz.com/api）
+    # 可在 config.json 中设置，或使用环境变量 D2W_STRATZ_TOKEN
+    d2w_stratz_token: str = ""
 
 
 try:

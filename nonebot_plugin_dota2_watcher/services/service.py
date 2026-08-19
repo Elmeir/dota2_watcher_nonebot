@@ -13,12 +13,13 @@ from nonebot.log import logger
 
 from ..config import config
 from ..datasources import d2pt, ti_results
+from ..datasources.hero_pool import HeroPoolError
 from ..datasources.request_match import (
     request_match_history,
     request_match_info_opendota,
     request_news,
 )
-from ..generators import core_build, match_builder
+from ..generators import core_build, hero_pool, match_builder
 from . import store
 from .player import Player
 
@@ -139,6 +140,34 @@ async def ti_image() -> str:
         return result or ""
     except Exception:
         logger.exception("TI 战报生成失败")
+        return ""
+
+
+async def hero_pool_image(group_id, arg: str) -> str:
+    """生成玩家英雄池环形图，返回本地图片路径。
+
+    arg 可为 steam_id（纯数字）或本群已订阅玩家昵称；
+    参数解析失败 / 未配置 Token 时抛出 ValueError（提示文案），生成失败返回空串。
+    """
+    arg = arg.strip()
+    if arg.isdigit():
+        steam_id = int(arg)
+    else:
+        player = next(
+            (p for p in store.get_group(str(group_id)) if p.nickname == arg),
+            None,
+        )
+        if player is None:
+            raise ValueError(
+                f"未找到昵称为「{arg}」的订阅玩家，请先用 /添加刀塔玩家 订阅，或直接输入 steam_id"
+            )
+        steam_id = player.short_steamID
+    try:
+        return await hero_pool.generate_image(steam_id) or ""
+    except HeroPoolError as e:
+        raise ValueError(str(e))
+    except Exception:
+        logger.exception("英雄池生成失败")
         return ""
 
 
