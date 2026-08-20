@@ -150,18 +150,19 @@ async def hero_pool_image(group_id, arg: str) -> str:
     参数解析失败 / 未配置 Token 时抛出 ValueError（提示文案），生成失败返回空串。
     """
     arg = arg.strip()
-    if arg.isdigit():
+    # 优先按昵称匹配，因为昵称可能是数字，会与 steam_id 混淆
+    player = next(
+        (p for p in store.get_group(str(group_id)) if p.nickname == arg),
+        None,
+    )
+    if player is not None:
+        steam_id = player.short_steamID
+    elif arg.isdigit():
         steam_id = int(arg)
     else:
-        player = next(
-            (p for p in store.get_group(str(group_id)) if p.nickname == arg),
-            None,
+        raise ValueError(
+            f"未找到昵称为「{arg}」的订阅玩家，请先用 /添加刀塔玩家 订阅，或直接输入 steam_id"
         )
-        if player is None:
-            raise ValueError(
-                f"未找到昵称为「{arg}」的订阅玩家，请先用 /添加刀塔玩家 订阅，或直接输入 steam_id"
-            )
-        steam_id = player.short_steamID
     try:
         return await hero_pool.generate_image(steam_id) or ""
     except HeroPoolError as e:

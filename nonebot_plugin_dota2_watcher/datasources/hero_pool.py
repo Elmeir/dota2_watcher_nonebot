@@ -31,7 +31,7 @@ QUERY = """
 query PlayerHeroPool($id: Long!) {
   player(steamAccountId: $id) {
     steamAccount { name avatar }
-    matches(request: { take: 100 }) {
+    matches(request: { take: 25 }) {
       players(steamAccountId: $id) {
         hero {
           displayName
@@ -45,9 +45,8 @@ query PlayerHeroPool($id: Long!) {
 }
 """
 
-# 抓取结果缓存：按 steam 账号各存一份到 data/hero_pool/ 目录
+# 抓取结果缓存：按 steam 账号各存一份到 data/hero_pool/ 目录，缓存不设时间限制
 CACHE_DIR = DATA_DIR / "hero_pool"
-CACHE_MAX_AGE = 6 * 3600  # 6 小时
 CACHE_VERSION = 3  # 缓存结构版本（含 position、avatar 字段）；升级后旧缓存自动失效
 
 
@@ -76,7 +75,10 @@ def _cache_path(steam_id) -> Path:
 
 
 def _load_cache(cache_path: Path, key: tuple[int, int], now: float, max_age: float):
-    """读取缓存；命中且未过期返回 (player_name, avatar, matches)，否则 None。"""
+    """读取缓存；命中（结构/账号一致）即返回 (player_name, avatar, matches)，否则 None。
+
+    max_age 仅用于兼容调用方；当前缓存不设时间限制，传 None 表示永不过期。
+    """
     if not cache_path.exists():
         return None
     try:
@@ -87,7 +89,7 @@ def _load_cache(cache_path: Path, key: tuple[int, int], now: float, max_age: flo
         return None
     if data.get("steam_id") != key[0] or data.get("count") != key[1]:
         return None
-    if now - data.get("fetched_at", 0) > max_age:
+    if max_age is not None and now - data.get("fetched_at", 0) > max_age:
         return None
     return data.get("player_name"), data.get("avatar") or "", data.get("matches") or []
 
@@ -181,8 +183,8 @@ def _parse_payload(payload: dict, steam_id) -> tuple[str, str, list[dict]]:
     return player_name, avatar, matches
 
 
-async def fetch_matches(steam_id, count=100, refresh=False,
-                        cache_path: Path | None = None):
+async def fetch_matches(steam_id, count=25, refresh=False,
+                        cache_path: Path | None = None, max_age=None):
     """拉取玩家最近比赛数据：先尝试抓取 API，失败（网络/限流/解析错误）才回退本地缓存。
 
     返回 (player_name, avatar, matches)：
@@ -192,7 +194,7 @@ async def fetch_matches(steam_id, count=100, refresh=False,
     """
     if cache_path is None:
         cache_path = _cache_path(steam_id)
-    query = QUERY.replace("take: 100", f"take: {int(count)}") if count != 100 else QUERY
+    query = QUERY.replace("take: 25", f"take: {int(count)}") if count != 25 else QUERY
     headers = {
         "Authorization": f"Bearer {_token()}",
         "Content-Type": "application/json",
@@ -223,7 +225,7 @@ async def fetch_matches(steam_id, count=100, refresh=False,
         # 抓取失败：默认回退本地缓存（若有）；refresh 则完全忽略缓存直接报错
         if refresh:
             raise
-        cached = _load_cache(cache_path, (int(steam_id), int(count)), time.time(), CACHE_MAX_AGE)
+        cached = _load_cache(cache_path, (int(steam_id), int(count)), time.time(), max_age)
         if cached:
             logger.warning(
                 f"Stratz API 抓取失败（{exc.__class__.__name__}），回退本地缓存 {cache_path.name}"

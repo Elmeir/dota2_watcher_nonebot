@@ -901,7 +901,7 @@ async def render_png(stats: list[dict], total: int, out_path, pos_dist=None,
     canvas.convert("RGB").save(out_path, "PNG")
 
 
-async def generate_image(steam_id, count=100, refresh=False) -> str:
+async def generate_image(steam_id, count=25, refresh=False) -> str:
     """拉取玩家英雄池数据并渲染 PNG 环形图，返回本地路径。
 
     数据抓取/渲染失败时抛 ds.HeroPoolError（供上层转为用户提示）。
