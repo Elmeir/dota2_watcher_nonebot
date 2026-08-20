@@ -2196,6 +2196,7 @@ def _render_bracket_html(model, team_info, logo_uris):
         )
     has_times = False
     bold_date = _bold_date(model["nodes"].values())
+    today_delay = _today_delay(model["nodes"].values())
     for nid, n in model["nodes"].items():
         x = model["col"][nid] * (_BRK_MATCH_W + _BRK_ROUND_GAP)
         y = model["top"][nid]
@@ -2205,7 +2206,7 @@ def _render_bracket_html(model, team_info, logo_uris):
             + _bracket_opponent_html(n, 1, True, team_info, logo_uris)
             + "</div>"
         )
-        scheduled = _scheduled_time_text(n, bold_date, live_red=True)
+        scheduled = _scheduled_time_text(n, bold_date, live_red=True, today_delay=today_delay)
         if scheduled:
             has_times = True
             body_parts.append(
@@ -2397,26 +2398,56 @@ def _bold_date(nodes):
     return today + timedelta(days=1)
 
 
-def _scheduled_time_text(n, bold_date=None, live_red=False):
+def _today_delay(nodes):
+    """今日已开赛比赛的顺延量（秒）= actual_time - scheduled_time 的最大值；无则 0。
+
+    用于把今日尚未开始的比赛显示时间后移，避免赛程推迟后仍显示过时的开赛时间。
+    """
+    today = datetime.now(LOCAL_TZ).date()
+    delay = 0
+    for n in nodes:
+        st = n.get("scheduled_time")
+        at = n.get("actual_time")
+        if not st or not at:
+            continue
+        if datetime.fromtimestamp(st, LOCAL_TZ).date() != today:
+            continue
+        delay = max(delay, at - st)
+    return delay
+
+
+def _scheduled_time_text(n, bold_date=None, live_red=False, today_delay=0):
     """返回系列赛的开赛时间文本（北京时间，如 '8/16 10:00'）。
 
     - 已结束（is_completed）返回 None；
-    - 尚未排定对阵（team_id 为 0，如瑞士轮下一轮未公布）时，只要带 scheduled_time
+    - 尚未排定对阵（team_id 为 0，如瑞士轮下一轮未公布）时，只要带时间戳
       仍会显示时间，便于观众知晓下一轮何时开赛；
     - 进行中（has_started 且未结束）：live_red=True 时返回加粗标红的 <b> 时间；
       时间取 actual_time，缺失时回退 scheduled_time；
+    - 今日未开始的比赛：today_delay 大于 0 时，显示时间按顺延量后移
+      （今日已有比赛 actual_time - scheduled_time 的最大值）；
     - bold_date 为需加粗的日期（date 对象），匹配时返回普通 <b> 包裹的 HTML。
     """
     ts = n.get("actual_time") or n.get("scheduled_time")
     if not ts or n.get("is_completed"):
         return None
     dt = datetime.fromtimestamp(ts, LOCAL_TZ)
-    text = f"{dt.month}/{dt.day} {dt:%H:%M}"
     if n.get("has_started"):
         # 进行中：仅正赛开启 live_red 时显示并加粗标红，其它场景不显示时间
         if not live_red:
             return None
+        text = f"{dt.month}/{dt.day} {dt:%H:%M}"
         return f'<b style="color:#FF4B59">{text}</b>'
+    # 今日未开始的比赛：按今日已开赛比赛的顺延量后移显示时间（推测值，加 ? 标注）
+    delayed = False
+    if today_delay:
+        st = n.get("scheduled_time")
+        if st and datetime.fromtimestamp(st, LOCAL_TZ).date() == datetime.now(LOCAL_TZ).date():
+            dt = datetime.fromtimestamp(ts + today_delay, LOCAL_TZ)
+            delayed = True
+    text = f"{dt.month}/{dt.day} {dt:%H:%M}"
+    if delayed:
+        text += " ?"
     if bold_date is not None and dt.date() == bold_date:
         return f"<b>{text}</b>"
     return text
