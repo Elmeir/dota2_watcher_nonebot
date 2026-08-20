@@ -2195,6 +2195,7 @@ def _render_bracket_html(model, team_info, logo_uris):
             f'<div class="brkts-line" style="left:{x}px;top:{y}px;width:{w}px;height:{h}px"></div>'
         )
     has_times = False
+    bold_date = _bold_date(model["nodes"].values())
     for nid, n in model["nodes"].items():
         x = model["col"][nid] * (_BRK_MATCH_W + _BRK_ROUND_GAP)
         y = model["top"][nid]
@@ -2204,7 +2205,7 @@ def _render_bracket_html(model, team_info, logo_uris):
             + _bracket_opponent_html(n, 1, True, team_info, logo_uris)
             + "</div>"
         )
-        scheduled = _scheduled_time_text(n)
+        scheduled = _scheduled_time_text(n, bold_date, live_red=True)
         if scheduled:
             has_times = True
             body_parts.append(
@@ -2377,24 +2378,54 @@ def _elim_winner_tid(n):
     return None
 
 
-def _scheduled_time_text(n):
-    """未开始但已排定对阵的系列赛，返回开赛时间文本（北京时间，如 '8/16 10:00'）。
+def _bold_date(nodes):
+    """计算需要加粗的日期（本地时区）。
 
-    比赛已开始/已结束、或尚未排定对阵（team_id 为 0）时返回 None。
+    今天的比赛未打完（存在今天且未结束的比赛）时返回今天；
+    否则（今天的比赛已全部结束或今天无比赛）返回明天。
     """
-    if n.get("has_started") or n.get("is_completed"):
-        return None
-    if not (n.get("team_id_1") and n.get("team_id_2")):
-        return None
-    ts = n.get("scheduled_time")
-    if not ts:
+    now = datetime.now(LOCAL_TZ)
+    today = now.date()
+    for n in nodes:
+        ts = n.get("scheduled_time")
+        if not ts:
+            continue
+        if datetime.fromtimestamp(ts, LOCAL_TZ).date() != today:
+            continue
+        if not n.get("is_completed"):
+            return today
+    return today + timedelta(days=1)
+
+
+def _scheduled_time_text(n, bold_date=None, live_red=False):
+    """返回系列赛的开赛时间文本（北京时间，如 '8/16 10:00'）。
+
+    - 已结束（is_completed）返回 None；
+    - 尚未排定对阵（team_id 为 0，如瑞士轮下一轮未公布）时，只要带 scheduled_time
+      仍会显示时间，便于观众知晓下一轮何时开赛；
+    - 进行中（has_started 且未结束）：live_red=True 时返回加粗标红的 <b> 时间；
+      时间取 scheduled_time，缺失时回退 actual_time；
+    - bold_date 为需加粗的日期（date 对象），匹配时返回普通 <b> 包裹的 HTML。
+    """
+    ts = n.get("scheduled_time") or n.get("actual_time")
+    if not ts or n.get("is_completed"):
         return None
     dt = datetime.fromtimestamp(ts, LOCAL_TZ)
-    return f"{dt.month}/{dt.day} {dt:%H:%M}"
+    text = f"{dt.month}/{dt.day} {dt:%H:%M}"
+    if n.get("has_started"):
+        # 进行中：仅正赛开启 live_red 时显示并加粗标红，其它场景不显示时间
+        if not live_red:
+            return None
+        return f'<b style="color:#FF4B59">{text}</b>'
+    if bold_date is not None and dt.date() == bold_date:
+        return f"<b>{text}</b>"
+    return text
 
 
 def _render_elimination_round_html(model, team_info, logo_uris):
     """按 Liquipedia Group Stage Elimination Round（div 版）样式渲染完整 HTML。"""
+
+    bold_date = _bold_date(model["matches"])
 
     def qualified_html(n, q):
         """晋级席：已结束则显示获胜队（加粗）；未开始但已排定对阵显示开赛时间；否则占位空。"""
@@ -2409,7 +2440,7 @@ def _render_elimination_round_html(model, team_info, logo_uris):
                 f'<span class="name">{name}</span></div></div></div>'
             )
         else:
-            scheduled = _scheduled_time_text(n)
+            scheduled = _scheduled_time_text(n, bold_date)
             if scheduled:
                 text = f'<span class="brkts-qualified-time">{scheduled}</span>'
             else:
