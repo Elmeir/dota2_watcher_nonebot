@@ -1000,17 +1000,24 @@ def _render_match_image(match, font_paths, scale, output_path, match_id, t0):
     if region_val is None:
         region_val = match.get("region")
     region_id = f"region_{region_val}"
-    region = REGION[region_id] if region_id in REGION else "中国"
-    mode_id = match["game_mode"]
-    mode = GAME_MODE[mode_id] if mode_id in GAME_MODE else "未知"
-    lobby_id = match["lobby_type"]
-    lobby = LOBBY[lobby_id] if lobby_id in LOBBY else "未知"
+    # 小黑盒数据源已提供原始服务器文本（如"东南亚"），直接展示，无需查 REGION 表转换
+    region = match.get("server") or (REGION[region_id] if region_id in REGION else "中国")
+    mode_id = match.get("game_mode")
+    lobby_id = match.get("lobby_type")
+    mode_desc = match.get("mode_desc")
+    if mode_desc:
+        # 小黑盒数据源已提供原始模式文本（如"加速模式"），直接展示，无需查 GAME_MODE 表转换
+        mode_text = mode_desc
+    else:
+        mode = GAME_MODE[mode_id] if mode_id in GAME_MODE else "未知"
+        lobby = LOBBY[lobby_id] if lobby_id in LOBBY else "未知"
+        mode_text = f"{mode}/{lobby}"
 
     draw.text((_s(150), _s(40)), start_time, font=font, fill=(255, 255, 255))
     draw.text((_s(300), _s(40)), duration, font=font, fill=(255, 255, 255))
     draw.text((_s(380), _s(40)), skill, font=font, fill=(255, 255, 255))
     draw.text((_s(460), _s(40)), region, font=font, fill=(255, 255, 255))
-    draw.text((_s(550), _s(40)), f"{mode}/{lobby}", font=font, fill=(255, 255, 255))
+    draw.text((_s(550), _s(40)), mode_text, font=font, fill=(255, 255, 255))
 
     if match.get("from_valve"):
         draw.text((_s(20), _s(40)), "※分析结果不完整", font=font, fill=(255, 180, 0))

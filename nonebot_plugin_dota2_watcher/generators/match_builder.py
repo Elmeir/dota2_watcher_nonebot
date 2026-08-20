@@ -28,6 +28,10 @@ EXCLUDED_BENCHMARKS = {
 
 
 def _mode_label(match_info: dict) -> tuple[str, str]:
+    mode_desc = match_info.get("mode_desc")
+    if mode_desc:
+        # 小黑盒数据源已提供原始模式文本（如"加速模式"），直接展示，无需查表转换
+        return mode_desc, ""
     mode = GAME_MODE.get(match_info.get("game_mode"), "未知")
     lobby = LOBBY.get(match_info.get("lobby_type"), "未知")
     return mode, lobby
@@ -96,7 +100,7 @@ def generate_message(match_info: dict, player_list: list, ezmode: bool = False) 
     text += f"开始时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(match_info['start_time']))}\n"
     duration = match_info.get("duration", 0)
     text += f"持续时间: {duration // 60}分{duration % 60}秒\n"
-    text += f"游戏模式: [{mode}/{lobby}]\n"
+    text += f"游戏模式: [{'/'.join(x for x in (mode, lobby) if x)}]\n"
 
     for player in player_list:
         stats = player.stats

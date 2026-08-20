@@ -269,20 +269,6 @@ def parse_duration(value):
     return leading_int(s)
 
 
-def infer_mode(mode_desc):
-    """根据小黑盒的模式文案推断 OpenDota 的 game_mode / lobby_type。"""
-    desc = mode_desc or ""
-    if "天梯" in desc:
-        return 22, 7  # 全英雄选择 / 天梯匹配
-    if "加速" in desc or "快速" in desc:
-        return 23, 0  # 加速模式 / 普通匹配
-    if "随机" in desc:
-        return 3, 0  # 随机征召 / 普通匹配
-    if "中路" in desc or "solo" in desc.lower():
-        return 11, 0  # 中路模式 / 普通匹配
-    return 22, 0
-
-
 def convert_player(xp, duration, name2id):
     """把小黑盒玩家数据转换为 OpenDota player 结构。"""
     kda = xp.get("kda") or {}
@@ -337,7 +323,7 @@ def convert_player(xp, duration, name2id):
         "net_worth": int(xp.get("gold") or 0),
         "gold_per_min": gpm,
         "xp_per_min": xp_per_min,
-        "total_xp": xp_per_min * max(duration // 60, 0),
+        "total_xp": xp_per_min * max(duration / 60, 0),
         "hero_damage": int(xp.get("damage") or 0),
         "tower_damage": leading_int(hero_data_value(hero_data, "塔伤")),
         "hero_healing": leading_int(hero_data_value(hero_data, "治疗")),
@@ -388,9 +374,9 @@ def convert_match(result, match_id, name2id):
         radiant_win = radiant_score > dire_score
 
     duration = parse_duration(match_info.get("duration"))
-    finish_time = int(match_info.get("finish_time") or 0)
-    start_time = finish_time - duration if finish_time else 0
-    game_mode, lobby_type = infer_mode(match_info.get("mode_desc"))
+    # 小黑盒数据问题：finish_time 字段实际就是 OpenDota 的 start_time，
+    # 直接作为开始时间使用，无需再减去持续时间。
+    start_time = int(match_info.get("finish_time") or 0)
 
     players = []
     for team in (radiant, dire):  # 天辉在前、夜魇在后，与 OpenDota 顺序一致
@@ -408,10 +394,11 @@ def convert_match(result, match_id, name2id):
         "dire_score": dire_score,
         "duration": duration,
         "start_time": start_time,
-        "game_mode": game_mode,
-        "lobby_type": lobby_type,
         "from_valve": True,
         "data_source": "xiaoheihe",
+        # 原始文本字段：小黑盒已提供可直接展示的中文文案，无需再查表转换
+        "server": str(result.get("server") or ""),
+        "mode_desc": str(match_info.get("mode_desc") or ""),
         "players": players,
     }
 

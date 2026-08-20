@@ -43,9 +43,9 @@ class NewMatch:
     match_info: dict | None = None
 
     def has_valid_info(self) -> bool:
-        """比赛详情是否有效：已成功拉取且含 game_mode 等必要字段。"""
+        """比赛详情是否有效：已成功拉取且含 radiant_win 等必要字段。"""
         info = self.match_info
-        return bool(info) and not isinstance(info, Exception) and "game_mode" in info
+        return bool(info) and not isinstance(info, Exception) and "radiant_win" in info
 
 
 # ---------------------------------------------------------------
