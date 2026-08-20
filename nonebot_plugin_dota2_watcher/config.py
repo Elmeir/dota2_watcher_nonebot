@@ -91,11 +91,32 @@ try:
     _CONFIG_FILE = get_data_dir("nonebot_plugin_dota2_watcher") / "config.json"
     if _CONFIG_FILE.exists():
         try:
-            _override = json.loads(_CONFIG_FILE.read_text(encoding="utf-8")) or {}
-            config = Config(**{**config.model_dump(), **_override})
+            _loaded = json.loads(_CONFIG_FILE.read_text(encoding="utf-8")) or {}
+            # 结构校验：丢弃 Config 未定义的无效项
+            _valid_keys = set(Config.model_fields)
+            _cleaned = {k: v for k, v in _loaded.items() if k in _valid_keys}
+            # 合并 config.json 中有效项，缺失项自动补齐默认值
+            config = Config(**{**config.model_dump(), **_cleaned})
+            # 存在无效项被删除 / 缺失项被补齐时，回写整理后的配置
+            if _loaded != config.model_dump():
+                _CONFIG_FILE.write_text(
+                    json.dumps(config.model_dump(), ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                logger.info(f"已整理配置文件（清除无效项 / 补齐缺失项）：{_CONFIG_FILE}")
         except Exception:
-            # config.json 内容非法时回退到默认/环境变量配置，避免启动失败
-            pass
+            # config.json 内容损坏：备份损坏文件并重新生成默认配置，避免启动失败
+            logger.warning(f"配置文件损坏，已备份并重新生成默认配置：{_CONFIG_FILE}")
+            _backup = _CONFIG_FILE.with_suffix(".json.bak")
+            try:
+                _CONFIG_FILE.replace(_backup)
+                logger.warning(f"损坏配置已备份到：{_backup}")
+            except Exception:
+                pass  # 备份失败不影响后续重新生成
+            _CONFIG_FILE.write_text(
+                json.dumps(config.model_dump(), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
     else:
         # 首次运行：写入默认配置（含当前已生效的环境变量值），便于后续编辑
         _CONFIG_FILE.write_text(
