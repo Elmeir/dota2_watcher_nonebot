@@ -323,7 +323,7 @@ def convert_player(xp, duration, name2id):
         "net_worth": int(xp.get("gold") or 0),
         "gold_per_min": gpm,
         "xp_per_min": xp_per_min,
-        "total_xp": xp_per_min * max(duration / 60, 0),
+        "total_xp": int(xp_per_min * max(duration / 60, 0)),
         "hero_damage": int(xp.get("damage") or 0),
         "tower_damage": leading_int(hero_data_value(hero_data, "塔伤")),
         "hero_healing": leading_int(hero_data_value(hero_data, "治疗")),

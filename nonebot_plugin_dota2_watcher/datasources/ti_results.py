@@ -385,7 +385,7 @@ async def watch_latest_result(mode="series", debug=False):
                     w2 += 1
                 else:
                     continue  # 胜者不在对战双方中，跳过
-                finished.append((mid, f"{t1} {w1}:{w2} {t2}"))
+                finished.append((mid, f"{t1} {w1} : {w2} {t2}"))
         finished.sort(key=lambda x: x[0])
         if not _watch_game_baseline_done:
             _watch_game_baseline_done = True
@@ -423,7 +423,7 @@ async def watch_latest_result(mode="series", debug=False):
                     t1 = team_map.get(n.get("team_id_1"), "TBD")
                     t2 = team_map.get(n.get("team_id_2"), "TBD")
                     w1, w2 = n.get("team_1_wins", 0), n.get("team_2_wins", 0)
-                    pending.append(f"{t1} {w1}:{w2} {t2}")
+                    pending.append(f"{t1} {w1} : {w2} {t2}")
 
     if not pending:
         return ""
@@ -2665,7 +2665,7 @@ def main():
             f"G{g['match_id']}->{team_map.get(g['winning_team_id'], '?')}"
             for g in node.get("matches", [])
         )
-        print(f"{time_str}  [{status}]  {t1} {w1}:{w2} {t2}")
+        print(f"{time_str}  [{status}]  {t1} {w1} : {w2} {t2}")
         if games:
             print(f"          局次: {games}")
 
