@@ -243,6 +243,7 @@ WATCH_INTERVAL_RETRY = 30  # 获取数据失败后的重试间隔（避免误判
 WATCH_SOON_WINDOW = 600  # 10 分钟内
 WATCH_NEAR_WINDOW = 1800  # 30 分钟内
 WATCH_GATE_TOLERANCE = 1.0  # 门控容差（秒）：避免与外部调用间隔相等时的边界抖动
+_watch_interval = WATCH_INTERVAL_IDLE  # 当前生效的动态轮询间隔（失败时沿用）
 
 
 def recommend_poll_interval(node_groups, now=None):
@@ -313,7 +314,7 @@ async def watch_latest_result(mode="series", debug=False):
                 ...
     """
     global _watch_seen_series, _watch_baseline_done, _watch_seen_games, _watch_game_baseline_done
-    global _watch_next_check_ts
+    global _watch_next_check_ts, _watch_interval
 
     now = time.time()
     if now < _watch_next_check_ts - WATCH_GATE_TOLERANCE:
@@ -331,14 +332,28 @@ async def watch_latest_result(mode="series", debug=False):
         data = await _to_thread(fetch_league_data)
     except Exception as exc:
         print(f"[!] 获取比赛数据失败: {exc}", file=sys.stderr)
-        _watch_next_check_ts = now + WATCH_INTERVAL_RETRY
-        return ""
+        if _watch_next_check_ts == 0.0:
+            # 首次启动即失败：读取缓存文件仅用于估算动态间隔，无缓存才退避到重试间隔
+            cache = _load_league_data_cache()
+            if not cache:
+                print("[*] 无本地缓存可用，退避到重试间隔", file=sys.stderr)
+                _watch_next_check_ts = now + WATCH_INTERVAL_RETRY
+                return ""
+            _watch_interval = recommend_poll_interval(cache.get("node_groups", []))
+            _watch_next_check_ts = now + _watch_interval
+            print("[*] 网络失败，按缓存赛程沿用动态间隔", file=sys.stderr)
+            return ""
+        else:
+            # 非首次失败：沿用上次成功时的动态间隔，避免误判为空闲/退出重试档位
+            _watch_next_check_ts = now + _watch_interval
+            return ""
 
     # 抓取成功，保存到本地缓存 data/dota2_ti.json（供战报图片函数失败时回退）
     await _to_thread(_save_league_data_cache, data)
 
     team_map = build_team_map(data.get("node_groups", []))
     next_interval = recommend_poll_interval(data.get("node_groups", []))
+    _watch_interval = next_interval
     _watch_next_check_ts = now + next_interval
     if debug:
         print(
