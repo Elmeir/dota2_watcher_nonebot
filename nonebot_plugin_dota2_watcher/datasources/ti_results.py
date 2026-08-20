@@ -2404,10 +2404,10 @@ def _scheduled_time_text(n, bold_date=None, live_red=False):
     - 尚未排定对阵（team_id 为 0，如瑞士轮下一轮未公布）时，只要带 scheduled_time
       仍会显示时间，便于观众知晓下一轮何时开赛；
     - 进行中（has_started 且未结束）：live_red=True 时返回加粗标红的 <b> 时间；
-      时间取 scheduled_time，缺失时回退 actual_time；
+      时间取 actual_time，缺失时回退 scheduled_time；
     - bold_date 为需加粗的日期（date 对象），匹配时返回普通 <b> 包裹的 HTML。
     """
-    ts = n.get("scheduled_time") or n.get("actual_time")
+    ts = n.get("actual_time") or n.get("scheduled_time")
     if not ts or n.get("is_completed"):
         return None
     dt = datetime.fromtimestamp(ts, LOCAL_TZ)
