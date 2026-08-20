@@ -5,7 +5,7 @@ Token 配置：config.json 的 d2w_stratz_token，或环境变量 D2W_STRATZ_TOK
 英雄头像来源：https://cdn.stratz.com/images/dota2/heroes/{short}_icon.png
 
 每次调用先尝试抓取 API；抓取成功按 steam 账号缓存到 data/hero_pool/，
-抓取失败（网络/限流）才回退本地缓存（6 小时内有效）。
+抓取失败（网络/限流）才回退本地缓存（缓存不设时间限制）。
 """
 
 from __future__ import annotations

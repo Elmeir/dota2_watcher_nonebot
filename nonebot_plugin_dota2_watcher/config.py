@@ -22,39 +22,49 @@ from pydantic import BaseModel
 class Config(BaseModel):
     """NoneBot 用户可配置项（环境变量以 D2W_ 为前缀，如 D2W_TIMEOUT）。"""
 
+    # ===================== API 密钥 =====================
     # Steam Web API Key（https://steamcommunity.com/dev/apikey 申请）
     # 用于拉取玩家比赛历史；留空时比赛播报不可用但其余功能正常
     d2w_steam_api_key: str = ""
     # TI 赛事/实时单局使用的 Steam Web API Key（可另申请一个分开用）
     # 留空时回退使用 d2w_steam_api_key
     d2w_ti_steam_api_key: str = ""
+    # Stratz GraphQL API Token（/英雄池 使用，申请地址 https://stratz.com/api）
+    # 可在 config.json 中设置，或使用环境变量 D2W_STRATZ_TOKEN
+    d2w_stratz_token: str = ""
+
+    # ===================== 网络 =====================
     # 代理，如 {"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"}
     d2w_proxies: dict[str, str] = {}
     # 网络请求超时（秒）
     d2w_timeout: int = 20
+    # 下载超时（秒）
+    d2w_download_timeout: int = 60
+    # GitHub 加速前缀（国内访问 GitHub raw 资源时使用，可按需替换为其它代理）
+    d2w_gh_proxy: str = "https://gh-proxy.com"
+
+    # ===================== 播报与内容 =====================
     # 如何呼叫全体
     d2w_all_nickname: str = "全体"
     # 不播报的游戏模式（见 dota_dicts.GAME_MODE）
     d2w_game_mode: list[int] = [15, 19]
     # 评分标准（0~1），仅 openDota 支持
     d2w_benchmark_threshold: float = 0.5
-    # GitHub 加速前缀（国内访问 GitHub raw 资源时使用，可按需替换为其它代理）
-    d2w_gh_proxy: str = "https://gh-proxy.com"
-    # 定时任务轮询间隔（秒）
+
+    # ===================== 定时任务 =====================
+    # 各定时任务轮询间隔（秒）
     d2w_ti_poll_interval: int = 10
     d2w_news_poll_interval: int = 60
     d2w_match_poll_interval: int = 60
     # 拉取玩家比赛历史时的并发上限（Steam 接口存在速率限制，过大易触发 429/503）
     d2w_history_concurrency: int = 3
+
+    # ===================== 缓存 =====================
     # 数据缓存时长（秒）
-    d2w_cache_expire_seconds: int = 3600  # D2PT 位置数据缓存（1 小时）
-    d2w_core_build_cache_seconds: int = 86400  # 核心出装数据缓存（24 小时）
-    # 网络 / 下载 / 分析超时（秒）
-    d2w_download_timeout: int = 60
-    d2w_match_analysis_timeout: int = 120  # openDota 录像分析等待上限
-    # Stratz GraphQL API Token（/英雄池 使用，申请地址 https://stratz.com/api）
-    # 可在 config.json 中设置，或使用环境变量 D2W_STRATZ_TOKEN
-    d2w_stratz_token: str = ""
+    d2w_cache_expire_seconds: int = 10800  # D2PT 位置数据缓存（3 小时）
+    d2w_core_build_cache_seconds: int = 259200  # 核心出装数据缓存（72 小时）
+    # 生成图片缓存时长（秒）：在缓存期内复用已生成的图片，避免重复渲染
+    d2w_core_build_image_cache_seconds: int = 86400  # 生成图片缓存（24 小时 / 1 天）
 
 
 try:

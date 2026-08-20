@@ -56,23 +56,28 @@ nonebot.run()
 
 | 环境变量                           | 说明                                                                           | 默认值        |
 | ------------------------------ | ---------------------------------------------------------------------------- | ---------- |
+| **API 密钥**                    |                                                                              |            |
 | `D2W_STEAM_API_KEY`            | Steam Web API Key（用于拉取玩家比赛历史），[申请地址](https://steamcommunity.com/dev/apikey)  | 空          |
 | `D2W_TI_STEAM_API_KEY`         | TI 赛事 / 实时单局使用的独立 API Key，留空时复用上面的 Key                                       | 空          |
+| `D2W_STRATZ_TOKEN`             | Stratz GraphQL API Token（`/英雄池` 使用），[申请地址](https://stratz.com/api)           | 空          |
+| **网络**                        |                                                                              |            |
 | `D2W_PROXIES`                  | 网络代理，如 `{"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"}` | `{}`       |
-| `D2W_GH_PROXY`                 | GitHub 加速前缀（国内访问 GitHub raw 资源时使用，可替换为其它代理）                                | `https://gh-proxy.com` |
 | `D2W_TIMEOUT`                  | 网络请求超时（秒）                                                                    | `20`       |
+| `D2W_DOWNLOAD_TIMEOUT`         | 下载超时（秒）                                                                      | `60`       |
+| `D2W_GH_PROXY`                 | GitHub 加速前缀（国内访问 GitHub raw 资源时使用，可替换为其它代理）                                | `https://gh-proxy.com` |
+| **播报与内容**                   |                                                                              |            |
 | `D2W_ALL_NICKNAME`             | “全体”播报的昵称关键字                                                                 | `全体`       |
 | `D2W_GAME_MODE`                | 不播报的游戏模式列表                                                                   | `[15, 19]` |
 | `D2W_BENCHMARK_THRESHOLD`      | 评分标准（0\~1，仅 OpenDota 支持）                                                     | `0.5`      |
+| **定时任务**                     |                                                                              |            |
 | `D2W_TI_POLL_INTERVAL`         | TI 赛果轮询间隔（秒）                                                                 | `10`       |
 | `D2W_NEWS_POLL_INTERVAL`       | 新闻轮询间隔（秒）                                                                    | `60`       |
 | `D2W_MATCH_POLL_INTERVAL`      | 玩家比赛轮询间隔（秒）                                                                  | `60`       |
 | `D2W_HISTORY_CONCURRENCY`     | 拉取玩家比赛历史的并发上限（避免触发 Steam 限流）                                        | `3`        |
-| `D2W_CACHE_EXPIRE_SECONDS`     | D2PT / 玩家数据缓存时长（秒）                                                           | `3600`     |
-| `D2W_CORE_BUILD_CACHE_SECONDS` | 核心出装数据缓存时长（秒）                                                                | `86400`    |
-| `D2W_DOWNLOAD_TIMEOUT`         | 下载超时（秒）                                                                      | `60`       |
-| `D2W_MATCH_ANALYSIS_TIMEOUT`   | OpenDota 录像分析等待上限（秒）                                                         | `120`      |
-| `D2W_STRATZ_TOKEN`             | Stratz GraphQL API Token（`/英雄池` 使用），[申请地址](https://stratz.com/api)           | 空          |
+| **缓存**                        |                                                                              |            |
+| `D2W_CACHE_EXPIRE_SECONDS`     | D2PT / 玩家数据缓存时长（秒）                                                           | `10800`    |
+| `D2W_CORE_BUILD_CACHE_SECONDS` | 核心出装数据缓存时长（秒）                                                                | `259200`   |
+| `D2W_CORE_BUILD_IMAGE_CACHE_SECONDS` | 核心出装生成图片缓存时长（秒）                                                   | `86400`    |
 
 > 运行期数据与缓存目录由 [nonebot-plugin-localstore](https://github.com/nonebot/plugin-localstore) 统一管理，默认写入系统用户数据目录；如需自定义，可设置 `LOCALSTORE_DATA_DIR` / `LOCALSTORE_CACHE_DIR`。
 

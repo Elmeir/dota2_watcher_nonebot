@@ -763,8 +763,6 @@ async def get_match(match_id, wait=True, timeout=None, force=False, match_data=N
     match_data 由调用方（如轮询新比赛阶段二）传入已获取的比赛详情，
     可避免生成战报图片时对 OpenDota 主源场次重复请求；为 None 时保持原有流程。
     """
-    if timeout is None:
-        timeout = _cfg.config.d2w_match_analysis_timeout
     match_file = os.path.join(MATCHES_DIR, f"{match_id}.json")
 
     if match_data is not None:

@@ -54,7 +54,9 @@ TALENTS_CN_FILE = _cfg.DATA_DIR / "talents_cn.json"
 ITEMS_FILE = _cfg.DATA_DIR / "items.json"
 DATA_URL = _cfg.D2PT_CORE_BUILD_URL
 TALENTS_CN_URL = _cfg.D2PT_TALENTS_CN_URL
-DATA_CACHE_SECONDS = _cfg.config.d2w_core_build_cache_seconds  # 24 小时
+DATA_CACHE_SECONDS = _cfg.config.d2w_core_build_cache_seconds  # 72 小时
+# 生成图片缓存时长（秒）：在缓存期内复用已生成的图片，避免重复渲染
+IMAGE_CACHE_SECONDS = _cfg.config.d2w_core_build_image_cache_seconds  # 24 小时 / 1 天
 
 # 技能图片 CDN（加点图标）
 ABILITY_IMAGE_URL = _cfg.ABILITY_IMAGE_URL
@@ -177,7 +179,7 @@ def generate_abilities():
 
 
 async def ensure_data_file():
-    """检查 d2pt_core_build.json 是否存在或超过 24 小时，需要时从远程下载。
+    """检查 d2pt_core_build.json 是否存在或超过 72 小时，需要时从远程下载。
     同时同步更新天赋中文名文件 talents_cn.json，并确保技能映射 abilities.json 存在。
 
     网络下载用 asyncio.to_thread 丢到线程池，避免阻塞事件循环；
@@ -1200,6 +1202,11 @@ async def generate_image(
         safe_hero = hero_name.replace(" ", "-")
         safe_pos = position.replace(" ", "_")
         output_path = os.path.join(OUTPUT_DIR, f"{safe_hero}_{safe_pos}.png")
+
+    # 图片缓存：缓存期内（默认 24 小时 / 1 天）复用已生成的图片，避免重复渲染
+    if os.path.exists(output_path) and time.time() - os.path.getmtime(output_path) <= IMAGE_CACHE_SECONDS:
+        print(f"图片缓存命中（{IMAGE_CACHE_SECONDS} 秒内）: {output_path}")
+        return output_path
 
     # 使用共享浏览器渲染（自动管理，无需手动创建）
     # 超采样抗锯齿：以更高倍率渲染，再用 PIL Lanczos 降采样回目标尺寸，
