@@ -224,22 +224,26 @@ _ICON_PATHS: dict[PositionKey, list[tuple[str, str, float]]] = {
 }
 
 
-def _icon_size(count: int) -> int:
-    """按 Stratz 站点规则，用出场场次决定头像尺寸（越常用越大，再乘分辨率倍率）。"""
-    base = 4
-    if count >= 15:
-        base = 32
-    elif count >= 9:
-        base = 27
-    elif count >= 6:
-        base = 18
-    elif count >= 5:
-        base = 15
-    elif count >= 4:
-        base = 12
-    elif count >= 2:
-        base = 6
-    return base * SCALE
+# 动态头像尺寸（占比驱动）：最小/最大基础尺寸与"顶到最大"的占比阈值
+_ICON_MIN = 14          # 单场英雄的基础尺寸
+_ICON_MAX = 32          # 最高占比英雄的基础尺寸
+_ICON_RATIO_AT_MAX = 0.25  # 出场占比达 1/4 样本即顶到最大档
+# 角度重叠约束：icon 的角宽最多占其所在扇区角宽的该比例，剩下留给相邻 icon 的空隙
+_ICON_SECTOR_FRAC = 0.85
+
+
+def _icon_size(count: int, total: int | None = None) -> int:
+    """按出场占比动态决定头像尺寸（再乘分辨率倍率）。
+
+    样本量不固定（默认最近 25 场），故不用硬编码场次阈值——那样在样本
+    缩小时会大量落到最小档、图标偏小。改为直接用占比驱动：
+    占比越高头像越大，连续成比例缩放；占比达到 1/4 样本即顶到最大档，
+    单场英雄保持最小可见尺寸。
+    """
+    ratio = count / total if total else 0.0
+    clamped = max(0.0, min(1.0, ratio / _ICON_RATIO_AT_MAX))
+    base = _ICON_MIN + (_ICON_MAX - _ICON_MIN) * clamped
+    return round(base) * SCALE
 
 
 def _position_icon_size(percent: float, scale: float) -> float:
@@ -873,11 +877,18 @@ async def render_png(stats: list[dict], total: int, out_path, pos_dist=None,
         return_exceptions=True,
     )
     cursor = -90.0
+    # 头像直径上限：不超过外环带宽度（ri~ro 间距），并留出边缘余量，防止图标溢出环带
+    max_hero_diam = int((ro - ri) * 0.9)
     for item, img in zip(stats, hero_imgs):
         span = item["count"] * 360.0 / total
         mid = (cursor + (cursor - span)) / 2.0
         if isinstance(img, Image.Image):
-            sz = _icon_size(item["count"]) * SS
+            # 先受径向约束（不越出环带），再受角度约束（不侵占相邻扇区）
+            sz = min(_icon_size(item["count"], total) * SS, max_hero_diam)
+            # 该 icon 斜边角宽 = 2*asin((sz/2)/ric)，要求它不超过扇区角宽的一部分。
+            # 由「目标角宽 = 扇区角宽 * 占比系数」反解出允许的最大直径。
+            target_ang = math.radians(span) / 2.0 * _ICON_SECTOR_FRAC
+            sz = min(sz, int(2 * ric * math.sin(target_ang)))
             ix, iy = _pl(mid, ric)
             resized = img.resize((sz, sz), Image.LANCZOS)
             canvas.alpha_composite(resized, (round(ix - sz / 2), round(iy - sz / 2)))

@@ -143,10 +143,19 @@ async def ti_image() -> str:
         return ""
 
 
-async def hero_pool_image(group_id, arg: str) -> str:
+# 英雄池比赛数量档位：关键字（中英） -> 拉取场次；非法关键字回落默认挡
+_HERO_POOL_SIZES = {
+    "min": 25, "小": 25,
+    "mid": 50, "中": 50,
+    "max": 100, "大": 100,
+}
+
+
+async def hero_pool_image(group_id, arg: str, size: str = "") -> str:
     """生成玩家英雄池环形图，返回本地图片路径。
 
     arg 可为 steam_id（纯数字）或本群已订阅玩家昵称；
+    size 为比赛数量档位（min/mid/max 或 小/中/大，留空默认 25 场）。
     参数解析失败 / 未配置 Token 时抛出 ValueError（提示文案），生成失败返回空串。
     """
     arg = arg.strip()
@@ -163,8 +172,9 @@ async def hero_pool_image(group_id, arg: str) -> str:
         raise ValueError(
             f"未找到昵称为「{arg}」的订阅玩家，请先用 /添加刀塔玩家 订阅，或直接输入 steam_id"
         )
+    count = _HERO_POOL_SIZES.get(size.strip().lower(), 25)
     try:
-        return await hero_pool.generate_image(steam_id) or ""
+        return await hero_pool.generate_image(steam_id, count=count) or ""
     except HeroPoolError as e:
         raise ValueError(str(e))
     except Exception:

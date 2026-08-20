@@ -69,9 +69,9 @@ def _token() -> str:
     return token
 
 
-def _cache_path(steam_id) -> Path:
-    """返回指定 steam 账号对应的缓存文件路径。"""
-    return CACHE_DIR / f"hero_pool_{steam_id}.json"
+def _cache_path(steam_id, count=25) -> Path:
+    """返回指定 steam 账号 + 比赛数量对应的缓存文件路径。"""
+    return CACHE_DIR / f"hero_pool_{steam_id}_{int(count)}.json"
 
 
 def _load_cache(cache_path: Path, key: tuple[int, int], now: float, max_age: float):
@@ -193,7 +193,7 @@ async def fetch_matches(steam_id, count=25, refresh=False,
     - matches：每场比赛的英雄信息，含 {'name','display','short','position'}。
     """
     if cache_path is None:
-        cache_path = _cache_path(steam_id)
+        cache_path = _cache_path(steam_id, count)
     query = QUERY.replace("take: 25", f"take: {int(count)}") if count != 25 else QUERY
     headers = {
         "Authorization": f"Bearer {_token()}",

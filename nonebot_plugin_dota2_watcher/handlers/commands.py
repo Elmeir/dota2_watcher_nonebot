@@ -151,10 +151,13 @@ async def handle_ti():
 @hero_pool_cmd.handle()
 async def handle_hero_pool(event: GroupMessageEvent):
     args = _args(event)
-    if len(args) != 1:
-        await hero_pool_cmd.finish("请输入：/英雄池 [steam_id 或 玩家昵称]")
+    if not (1 <= len(args) <= 2):
+        await hero_pool_cmd.finish(
+            "请输入：/英雄池 [steam_id 或 玩家昵称] [min|mid|max 或 小|中|大（可选，默认 min）]"
+        )
+    size = args[1] if len(args) > 1 else ""
     try:
-        path = await service.hero_pool_image(event.group_id, args[0])
+        path = await service.hero_pool_image(event.group_id, args[0], size)
     except ValueError as e:
         await hero_pool_cmd.finish(str(e))
     if path:
