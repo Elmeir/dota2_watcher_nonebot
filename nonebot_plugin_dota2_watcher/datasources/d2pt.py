@@ -1,28 +1,17 @@
 """D2PT 位置数据：抓取、缓存、解析与格式化。"""
 
-import json
-import time
-from pathlib import Path
 from typing import Any
 
 from nonebot.log import logger
 
 from ..config import D2PT_POS_URL, DATA_DIR, config
 from ..dota_dicts import HEROES_LIST_CHINESE
-from ..utils import DOTA2HTTPError, get_http_client
+from ..utils import DOTA2HTTPError, cache_with_fallback, dumpjson, get_http_client
 
 CACHE_EXPIRE_SECONDS = config.d2w_cache_expire_seconds  # 缓存时长（秒）
 POS_RAW_FILE = DATA_DIR / "d2pt_pos.json"  # 远程合并的全位置原始数据缓存
 POS_DATA_FILE = DATA_DIR / "d2pt_data.json"  # 解析后的全位置数据
 _URL = D2PT_POS_URL
-
-
-def _load_json(path: Path, default=None):
-    """读取本地 JSON 缓存；解析失败或文件损坏时返回 default。"""
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return default
 
 
 async def fetch_d2pt_cheatsheet() -> dict:
@@ -37,26 +26,19 @@ async def fetch_d2pt_cheatsheet() -> dict:
         raise DOTA2HTTPError(f"D2PT 数据获取失败：{response.status_code}")
     d2pt_data = response.json()
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    POS_RAW_FILE.write_text(json.dumps(d2pt_data, ensure_ascii=False, indent=4), encoding="utf-8")
+    dumpjson(d2pt_data, POS_RAW_FILE)
     return d2pt_data
 
 
 async def get_data_with_cache() -> dict:
     """读取全位置原始数据，缓存过期或缺失时自动拉取；
     远程拉取失败时回退使用本地缓存（即使已过期）。"""
-    cached = _load_json(POS_RAW_FILE) if POS_RAW_FILE.exists() else None
-    if cached is not None:
-        age = time.time() - POS_RAW_FILE.stat().st_mtime
-        if age < CACHE_EXPIRE_SECONDS:
-            return cached
-    try:
-        return await fetch_d2pt_cheatsheet()
-    except DOTA2HTTPError:
-        # 远程拉取失败：回退读取本地缓存（即使已过期）
-        if cached is not None:
-            logger.warning("D2PT 远程数据拉取失败，回退使用本地缓存")
-            return cached
-        raise
+    return await cache_with_fallback(
+        POS_RAW_FILE,
+        fetch_d2pt_cheatsheet,
+        CACHE_EXPIRE_SECONDS,
+        warn=lambda: logger.warning("D2PT 远程数据拉取失败，回退使用本地缓存"),
+    )
 
 
 def parse_data_pos(pos: int, data: list) -> list:
@@ -104,26 +86,20 @@ async def parse_data(force_update: bool = False) -> dict:
         if raw_pos:
             pos_all[str(pos)] = parse_data_pos(pos, raw_pos)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    POS_DATA_FILE.write_text(json.dumps(pos_all, ensure_ascii=False, indent=4), encoding="utf-8")
+    dumpjson(pos_all, POS_DATA_FILE)
     return pos_all
 
 
 async def load_data(force_update: bool = False) -> dict | None:
     """读取合并后的全位置数据；d2pt_data.json 缓存过期或缺失时重新解析。
     远程拉取失败时回退使用本地缓存（即使已过期）。"""
-    cached = _load_json(POS_DATA_FILE) if POS_DATA_FILE.exists() else None
-    if cached is not None:
-        age = time.time() - POS_DATA_FILE.stat().st_mtime
-        if age < CACHE_EXPIRE_SECONDS and not force_update:
-            return cached
-    try:
-        return await parse_data(force_update)
-    except DOTA2HTTPError:
-        # 远程拉取失败：回退读取本地缓存（即使已过期）
-        if cached is not None:
-            logger.warning("D2PT 远程数据拉取失败，回退使用本地缓存")
-            return cached
-        raise
+    return await cache_with_fallback(
+        POS_DATA_FILE,
+        lambda: parse_data(force_update),
+        CACHE_EXPIRE_SECONDS,
+        force_update=force_update,
+        warn=lambda: logger.warning("D2PT 远程数据拉取失败，回退使用本地缓存"),
+    )
 
 
 def generate_message(data: dict, pos: str = "all") -> str:

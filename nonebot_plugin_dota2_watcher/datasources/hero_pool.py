@@ -21,7 +21,7 @@ from pathlib import Path
 from nonebot.log import logger
 
 from ..config import DATA_DIR, config, IMAGES_DIR
-from ..utils import async_download_bytes, get_http_client
+from ..utils import async_download_bytes, cache_with_fallback, get_http_client, load_cache
 
 GRAPHQL_URL = "https://api.stratz.com/graphql"
 # 与 STRATZ 站点一致的英雄头像地址（返回 webp，体积小）
@@ -79,11 +79,8 @@ def _load_cache(cache_path: Path, key: tuple[int, int], now: float, max_age: flo
 
     max_age 仅用于兼容调用方；当前缓存不设时间限制，传 None 表示永不过期。
     """
-    if not cache_path.exists():
-        return None
-    try:
-        data = json.loads(cache_path.read_text(encoding="utf-8"))
-    except Exception:
+    data = load_cache(cache_path)
+    if data is None:
         return None
     if data.get("cache_version") != CACHE_VERSION:
         return None
@@ -194,6 +191,7 @@ async def fetch_matches(steam_id, count=25, refresh=False,
     """
     if cache_path is None:
         cache_path = _cache_path(steam_id, count)
+    key = (int(steam_id), int(count))
     query = QUERY.replace("take: 25", f"take: {int(count)}") if count != 25 else QUERY
     headers = {
         "Authorization": f"Bearer {_token()}",
@@ -201,7 +199,10 @@ async def fetch_matches(steam_id, count=25, refresh=False,
         "User-Agent": "stratz-hero-pool/0.1",
     }
 
-    try:
+    def _load():
+        return _load_cache(cache_path, key, time.time(), max_age)
+
+    async def _fetch():
         # 先抓 API；对限流(429/503)做退避重试
         for attempt in range(4):
             try:
@@ -216,22 +217,23 @@ async def fetch_matches(steam_id, count=25, refresh=False,
 
         # 抓取成功，写回缓存
         try:
-            _save_cache(cache_path, (int(steam_id), int(count)), player_name, avatar, matches, time.time())
+            _save_cache(cache_path, key, player_name, avatar, matches, time.time())
         except Exception as e:
             logger.warning(f"英雄池缓存写入失败：{e}")
         return player_name, avatar, matches
 
-    except Exception as exc:
-        # 抓取失败：默认回退本地缓存（若有）；refresh 则完全忽略缓存直接报错
-        if refresh:
-            raise
-        cached = _load_cache(cache_path, (int(steam_id), int(count)), time.time(), max_age)
-        if cached:
-            logger.warning(
-                f"Stratz API 抓取失败（{exc.__class__.__name__}），回退本地缓存 {cache_path.name}"
-            )
-            return cached[0], cached[1], cached[2]
-        raise
+    # 稳定抓取 API，失败才回退本地缓存；refresh 时则不回退（直接报错）
+    return await cache_with_fallback(
+        cache_path,
+        _fetch,
+        max_age=None,
+        force_update=True,
+        loader=_load,
+        fallback=not refresh,
+        warn=lambda: logger.warning(
+            f"Stratz API 抓取失败，回退本地缓存 {cache_path.name}"
+        ),
+    )
 
 
 def build_stats(matches: list[dict]) -> list[dict]:

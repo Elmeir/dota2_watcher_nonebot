@@ -14,7 +14,6 @@
   - 运行依赖：抓取赛果仅用标准库；生成战报图片需额外安装 Pillow 与 Playwright。
 """
 
-import argparse
 import asyncio
 import base64
 import functools
@@ -35,11 +34,17 @@ from datetime import datetime, timedelta, timezone
 if __package__:
     from .. import config as _cfg
     from ..generators import shared_browser
-    from ..utils import download_bytes
+    from ..utils import (
+        cache_with_fallback,
+        download_bytes,
+        dumpjson,
+        image_to_data_uri,
+        load_cache,
+    )
 else:
     import config as _cfg
     import shared_browser
-    from utils import download_bytes
+    from utils import cache_with_fallback, download_bytes, dumpjson, image_to_data_uri, load_cache
 
 # TI 2026 联赛 ID（可由 dota2.com/esports/ti15/schedule 页面 URL 中的 ti15 参数确认）
 LEAGUE_ID = _cfg.TI_LEAGUE_ID
@@ -101,6 +106,21 @@ def fetch_league_data(url=API_URL, headers=HEADERS):
     return data
 
 
+def _walk_node_groups(node_groups, on_group):
+    """DFS 前序遍历 node_groups 树，对每个分组 dict 依次调用 on_group(group)。
+
+    供 build_team_map / collect_series / build_full_team_info 复用，
+    统一「递归遍历 node_groups -> node_groups/nodes」的分组树遍历逻辑。
+    """
+    stack = list(node_groups or [])
+    while stack:
+        g = stack.pop()
+        if not isinstance(g, dict):
+            continue
+        on_group(g)
+        stack.extend(g.get("node_groups") or [])
+
+
 def build_team_map(node_groups):
     """遍历所有外/内层分组，建立 team_id -> 官方完整队名 的映射。
 
@@ -109,9 +129,7 @@ def build_team_map(node_groups):
     team_map = {}
 
     def collect_group(group):
-        """递归收集单个分组的 team_standings 与 node 队伍 id，写入 team_map。"""
-        if not isinstance(group, dict):
-            return
+        """收集单个分组的 team_standings 与 node 队伍 id，写入 team_map。"""
         for ts in group.get("team_standings", []) or []:
             if not isinstance(ts, dict):
                 continue
@@ -123,8 +141,6 @@ def build_team_map(node_groups):
                     or ts.get("team_tag")
                     or str(tid)
                 )
-        for ng in group.get("node_groups", []) or []:
-            collect_group(ng)
         for node in group.get("nodes", []) or []:
             if not isinstance(node, dict):
                 continue
@@ -132,8 +148,7 @@ def build_team_map(node_groups):
                 if tid:
                     team_map.setdefault(tid, str(tid))
 
-    for g in node_groups or []:
-        collect_group(g)
+    _walk_node_groups(node_groups, collect_group)
     return team_map
 
 
@@ -141,17 +156,12 @@ def collect_series(node_groups):
     """遍历所有分组，收集所有比赛系列(nodes)。"""
     series = []
 
-    def walk(group):
-        if not isinstance(group, dict):
-            return
-        for ng in group.get("node_groups", []) or []:
-            walk(ng)
+    def _collect(group):
         for node in group.get("nodes", []) or []:
             if isinstance(node, dict):
                 series.append(node)
 
-    for g in node_groups or []:
-        walk(g)
+    _walk_node_groups(node_groups, _collect)
     return series
 
 
@@ -631,7 +641,7 @@ def build_full_team_info(node_groups):
 
     # 1) 遍历所有 group 的 team_standings
     def walk(group):
-        """递归遍历分组：合并 team_standings，并为 nodes 出现的 team_id 建空记录。"""
+        """合并分组 team_standings，并为 nodes 出现的 team_id 建空记录。"""
         for ts in group.get("team_standings", []):
             tid = ts.get("team_id")
             if not tid or int(tid) == 0:
@@ -651,14 +661,11 @@ def build_full_team_info(node_groups):
                 tiebreak_average_game_length=ts.get("tiebreak_average_game_length"),
                 score=ts.get("score"),
             )
-        for ng in group.get("node_groups", []):
-            walk(ng)
         for node in group.get("nodes", []):
             for tid in (node.get("team_id_1"), node.get("team_id_2")):
                 merge(tid)  # 至少建一条空记录，避免缩写为 TBD
 
-    for g in node_groups:
-        walk(g)
+    _walk_node_groups(node_groups, walk)
 
     # 确保每个队伍至少有个可读的显示名/缩写
     for tid, meta in info.items():
@@ -1061,8 +1068,7 @@ def fetch_liquipedia_logos():
         # 保存缓存，下次直接读，省去网络请求
         try:
             os.makedirs(_logo_cache_dir(), exist_ok=True)
-            with open(cache_path, "w", encoding="utf-8") as f:
-                json.dump(logos, f, ensure_ascii=False)
+            dumpjson(logos, cache_path)
         except Exception:
             pass
         return logos
@@ -1085,21 +1091,34 @@ def _save_league_data_cache(data):
     try:
         path = _league_data_cache_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
+        dumpjson(data, path)
     except Exception:
         pass
 
 
 def _load_league_data_cache():
     """从本地缓存 data/dota2_ti.json 读取联赛数据。失败返回 None。"""
+    return load_cache(_league_data_cache_path())
+
+
+async def _fetch_and_cache_league_data():
+    """从官方 API 抓取联赛数据并写入本地缓存。"""
+    data = await _to_thread(fetch_league_data)
+    _save_league_data_cache(data)
+    return data
+
+
+async def _league_data_cached_or_fetch():
+    """读取联赛数据缓存；无缓存时回退官方 API 抓取并保存；失败返回 None。"""
     try:
-        path = _league_data_cache_path()
-        if not os.path.exists(path):
-            return None
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
+        return await cache_with_fallback(
+            _league_data_cache_path(),
+            _fetch_and_cache_league_data,
+            max_age=None,  # TI 赛事情报为永久缓存，读到即用
+            fallback=False,
+        )
+    except Exception as exc:
+        print(f"[!] 无本地缓存且获取联赛数据失败: {exc}", file=sys.stderr)
         return None
 
 
@@ -1292,12 +1311,6 @@ def _img_to_data_uri(img):
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-def _file_to_data_uri(path):
-    """本地 PNG 文件 -> base64 data URI。"""
-    with open(path, "rb") as f:
-        return "data:image/png;base64," + base64.b64encode(f.read()).decode("ascii")
-
-
 def _download_logo_image(url, max_h=50):
     """下载战队 logo，返回保留透明背景、等比缩放的 PIL Image。失败返回 None。"""
     if not url:
@@ -1325,7 +1338,7 @@ def _logo_data_uri_cached(tid, url):
     os.makedirs(cache_dir, exist_ok=True)
     cache_path = os.path.join(cache_dir, f"{tid}.png")
     if os.path.exists(cache_path):
-        return _file_to_data_uri(cache_path)
+        return image_to_data_uri(cache_path)
     img = _download_logo_image(url)
     if img is None:
         return None
@@ -1359,18 +1372,9 @@ async def _prepare_report(data, output_path, prefix):
     auto_named = output_path is None
 
     if data is None:
-        data = _load_league_data_cache()
-        if data:
-            print("[*] 使用本地缓存数据 data/dota2_ti.json")
-        else:
-            # 无本地缓存时回退到官方 API 抓取，并保存为缓存供后续复用
-            try:
-                data = await _to_thread(fetch_league_data)
-            except Exception as exc:
-                print(f"[!] 无本地缓存且获取联赛数据失败: {exc}", file=sys.stderr)
-                return None, {}, None, False
-            _save_league_data_cache(data)
-            print("[*] 无本地缓存，已从官方 API 抓取并保存 data/dota2_ti.json")
+        data = await _league_data_cached_or_fetch()
+        if not data:
+            return None, {}, None, False
         lp_logos = await _to_thread(fetch_liquipedia_logos)
     else:
         _save_league_data_cache(data)
@@ -2622,15 +2626,9 @@ async def generate_league_report_image(output_path=None):
     数据优先从本地缓存 data/dota2_ti.json 读取；本地无缓存时才回退到官方 API 抓取。
     返回生成图片的绝对路径；失败返回 None。
     """
-    data = _load_league_data_cache()
+    data = await _league_data_cached_or_fetch()
     if not data:
-        try:
-            data = await _to_thread(fetch_league_data)
-        except Exception as exc:
-            print(f"[!] 无本地缓存且获取联赛数据失败: {exc}", file=sys.stderr)
-            return None
-        _save_league_data_cache(data)
-        print("[*] 无本地缓存，已从官方 API 抓取并保存 data/dota2_ti.json")
+        return None
     stage = detect_league_stage(data.get("node_groups") or [])
     if stage == "main_event":
         print("[*] 当前赛程：国际邀请赛正赛，生成对阵图战报")
@@ -2720,6 +2718,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import argparse
+
     parser = argparse.ArgumentParser(
         description="抓取 TI2026 比赛结果 / 生成战报图片（自动判断小组赛/国际邀请赛正赛）",
         formatter_class=argparse.RawDescriptionHelpFormatter,

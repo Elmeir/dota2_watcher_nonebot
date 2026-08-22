@@ -1,6 +1,7 @@
 """网络请求与通用工具。"""
 
 import asyncio
+import base64
 import json
 import os
 import ssl
@@ -147,3 +148,71 @@ def dumpjson(data, filepath):
     """将数据以 UTF-8 缩进的 JSON 格式写入文件。"""
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+
+
+def load_cache(filepath):
+    """安全读取缓存 JSON：文件缺失或解析失败时返回 None。
+
+    与 loadjson（失败返回默认空 dict）不同，这里保持「不存在/损坏 → None」语义，
+    供需要据此触发远端回退的缓存逻辑复用。
+    """
+    if not os.path.exists(filepath):
+        return None
+    try:
+        with open(filepath, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+async def cache_with_fallback(
+    filepath,
+    fetch,
+    max_age,
+    *,
+    force_update=False,
+    loader=None,
+    fallback=True,
+    warn=None,
+):
+    """统一的「缓存优先读取 + 拉取失败回退」辅助（异步）。
+
+    流程：
+      1) 用 loader(filepath) 读取缓存（缺省 utils.load_cache，失败返回 None）；
+      2) 缓存存在且未过期（且非 force_update）→ 直接返回缓存；
+      3) 否则 await fetch() 拉取新数据；
+      4) fetch 抛异常 → 若已有缓存且 fallback 为 True → 调用 warn() 并返回缓存，否则原样抛出。
+
+    filepath    : 缓存文件路径
+    fetch       : () -> data 的异步拉取函数（成功后应自行保存缓存）
+    max_age     : 缓存有效期秒数；None 表示「文件存在即为有效」
+    force_update: True 时忽略缓存新鲜度强制拉取（拉取失败仍按 fallback 处理）
+    loader      : (path) -> data，读取缓存；失败返回 None（缺省 utils.load_cache）
+    fallback    : 拉取失败时是否回退已读取的缓存
+    warn        : 回退缓存时的零参回调（用于打日志）
+    """
+    cached = None
+    if os.path.exists(filepath):
+        cached = (loader or load_cache)(filepath)
+    if cached is not None and not force_update:
+        try:
+            age = time.time() - os.path.getmtime(filepath)
+        except OSError:
+            age = None
+        if age is not None and (max_age is None or age < max_age):
+            return cached
+    try:
+        return await fetch()
+    except Exception:
+        if fallback and cached is not None:
+            if warn:
+                warn()
+            return cached
+        raise
+
+
+def image_to_data_uri(path):
+    """读取本地图片文件，转成 base64 data URI（png）。"""
+    with open(path, "rb") as f:
+        data = base64.b64encode(f.read()).decode("ascii")
+    return f"data:image/png;base64,{data}"

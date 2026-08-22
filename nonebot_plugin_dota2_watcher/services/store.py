@@ -11,11 +11,11 @@
 避免命令处理器与定时任务并发修改时发生竞态。
 """
 
-import json
 import threading
 from pathlib import Path
 
 from ..config import DATA_DIR, config
+from ..utils import dumpjson, loadjson
 from .player import Player
 
 _STORE_FILE: Path = DATA_DIR / "player_info.json"
@@ -42,10 +42,7 @@ def load() -> dict[str, dict]:
         _ensure_dir()
         raw: dict = {}
         if _STORE_FILE.exists():
-            try:
-                raw = json.loads(_STORE_FILE.read_text(encoding="utf-8"))
-            except Exception:
-                raw = {}
+            raw = loadjson(_STORE_FILE, {})
         migrated = False
         for gid, value in raw.items():
             if isinstance(value, list):
@@ -86,7 +83,7 @@ def save() -> None:
                 "subscribe_news": info.get("subscribe_news", True),
                 "subscribe_ti": info.get("subscribe_ti", True),
             }
-        _STORE_FILE.write_text(json.dumps(tmp, ensure_ascii=False, indent=4), encoding="utf-8")
+        dumpjson(tmp, _STORE_FILE)
 
 
 def get_all() -> dict[str, list[Player]]:

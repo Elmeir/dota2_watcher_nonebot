@@ -12,10 +12,8 @@ DOTA2 Pro Tracker 核心出装图片生成器（HTML 渲染版）
     python core_build.py Axe 3 -o out.png
 """
 
-import argparse
 import asyncio
 import base64
-import json
 import os
 import re
 import sys
@@ -38,10 +36,10 @@ else:
 # 所有目录 / URL / 缓存等配置统一从 config.py 读取。
 if __package__:
     from .. import config as _cfg
-    from ..utils import download_file, loadjson
+    from ..utils import download_file, dumpjson, image_to_data_uri, loadjson
 else:
     import config as _cfg
-    from utils import download_file, loadjson
+    from utils import download_file, dumpjson, image_to_data_uri, loadjson
 
 WORK_DIR = str(_cfg.BASE_DIR)
 IMAGES_DIR = str(_cfg.IMAGES_DIR)
@@ -173,8 +171,7 @@ def generate_abilities():
         text = f.read()
     pattern = re.compile(r'"([a-zA-Z0-9_]+)"\s*"(\d+)"', re.M)
     ability_id = {int(m.group(2)): m.group(1) for m in pattern.finditer(text)}
-    with open(ABILITIES_FILE, "w", encoding="utf-8") as f:
-        json.dump({str(k): v for k, v in ability_id.items()}, f, ensure_ascii=False, indent=0)
+    dumpjson({str(k): v for k, v in ability_id.items()}, ABILITIES_FILE)
     return True
 
 
@@ -240,13 +237,6 @@ def _avg_time_minutes(time_str):
             return 9999
 
 
-def image_to_data_url(image_path):
-    """读取本地图片文件，转成 base64 data URL。"""
-    with open(image_path, "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
-    return f"data:image/png;base64,{data}"
-
-
 def image_name_from_url(url):
     """把物品图标 URL 转成本地图标文件名，如 '/static/items/magic_wand.png' -> 'item_magic_wand.png'。"""
     if not url:
@@ -296,12 +286,8 @@ def find_hero(data, hero_query):
 # ============================================================
 def load_items_from_json():
     """从 items.json 加载物品 ID -> 名称映射（文件缺失时静默返回空）。"""
-    try:
-        with open(ITEMS_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-        return {int(k): v for k, v in data.items()}
-    except Exception:
-        return {}
+    data = loadjson(ITEMS_FILE)
+    return {int(k): v for k, v in data.items()}
 
 
 def ensure_items_cache():
@@ -326,8 +312,7 @@ def ensure_items_cache():
             if isinstance(it, dict) and it.get("id")
         }
         if items:
-            with open(ITEMS_FILE, "w", encoding="utf-8") as f:
-                json.dump({str(k): v for k, v in items.items()}, f, ensure_ascii=False)
+            dumpjson({str(k): v for k, v in items.items()}, ITEMS_FILE)
     ITEMS = items or {}
     if not ITEMS:
         print(
@@ -402,14 +387,14 @@ def ability_name_to_image(ability_name):
                 bonus_path,
             )
         if os.path.exists(bonus_path):
-            return image_to_data_url(bonus_path)
+            return image_to_data_uri(bonus_path)
     # 空技能槽（ability_base，ID 0）：使用 undefined 图标（仓库 gh-proxy）
     if ability_name == "ability_base":
         undefined_path = os.path.join(ABILITIES_IMAGES_DIR, f"{UNDEFINED_IMAGE_NAME}.png")
         if not os.path.exists(undefined_path):
             _download_to(_repo_icon_url(UNDEFINED_IMAGE_NAME), undefined_path)
         if os.path.exists(undefined_path):
-            return image_to_data_url(undefined_path)
+            return image_to_data_uri(undefined_path)
         return _solid_png_data_url()
     if ability_name in _MISSING_ABILITIES:
         return _solid_png_data_url()
@@ -422,7 +407,7 @@ def ability_name_to_image(ability_name):
             return _solid_png_data_url()
     if os.path.exists(local_path):
         try:
-            return image_to_data_url(local_path)
+            return image_to_data_uri(local_path)
         except Exception:
             pass
     return _solid_png_data_url()
@@ -653,7 +638,7 @@ def build_item_card(item, theme=THEME_DARK, show_time=True, show_core=True, stre
             if not _download_to(ITEM_IMAGE_URL.format(name=url_name), img_path, quiet=True):
                 _MISSING_ITEMS.add(img_filename)
     if os.path.exists(img_path):
-        bg_image = f"url('{image_to_data_url(img_path)}')"
+        bg_image = f"url('{image_to_data_uri(img_path)}')"
     else:
         bg_image = "none"
 
@@ -1245,6 +1230,8 @@ async def generate_image(
 # ============================================================
 def main():
     """解析命令行参数并渲染生成核心出装图片。"""
+    import argparse
+
     parser = argparse.ArgumentParser(
         description="DOTA2 Pro Tracker 核心出装图片生成器（HTML 渲染版）"
     )

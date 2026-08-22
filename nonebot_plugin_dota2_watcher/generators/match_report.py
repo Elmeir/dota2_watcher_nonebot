@@ -5,15 +5,13 @@ Dota 2 战报图片生成器（异步版）
 基于 https://github.com/SonodaHanami/Steam_watcher 的战报生成模块分离
 """
 
-import argparse
 import asyncio
 import logging
 import os
 import re
-import sys
 import time
 
-import aiohttp
+import httpx
 from PIL import Image, ImageDraw, ImageFont
 
 # ============================================================
@@ -24,11 +22,11 @@ from PIL import Image, ImageDraw, ImageFont
 if __package__:
     from .. import config as _cfg
     from ..dota_dicts import GAME_MODE, LOBBY, REGION
-    from ..utils import download_file, dumpjson, loadjson
+    from ..utils import download_file, dumpjson, get_http_client, loadjson
 else:
     import config as _cfg
     from dota_dicts import GAME_MODE, LOBBY, REGION
-    from utils import download_file, dumpjson, loadjson
+    from utils import download_file, dumpjson, get_http_client, loadjson
 
 WORK_DIR = str(_cfg.BASE_DIR)
 IMAGES_DIR = str(_cfg.IMAGES_DIR)
@@ -355,10 +353,11 @@ async def _fetch_heroes():
     """从 OpenDota 拉取英雄字典并更新内存与缓存。"""
     global HEROES
     try:
-        timeout = aiohttp.ClientTimeout(total=_cfg.config.d2w_download_timeout)
-        async with aiohttp.ClientSession(timeout=timeout) as s:
-            async with s.get(OPENDOTA_HEROES) as resp:
-                raw = await resp.json()
+        client = await get_http_client()
+        resp = await client.get(
+            OPENDOTA_HEROES, timeout=_cfg.config.d2w_download_timeout
+        )
+        raw = resp.json()
         new_heroes = {}
         for h in raw.values():
             hid = h.get("id")
@@ -381,10 +380,11 @@ async def _fetch_items():
     """从 OpenDota 拉取物品字典并更新内存与缓存。"""
     global ITEMS
     try:
-        timeout = aiohttp.ClientTimeout(total=_cfg.config.d2w_download_timeout)
-        async with aiohttp.ClientSession(timeout=timeout) as s:
-            async with s.get(OPENDOTA_ITEMS) as resp:
-                raw = await resp.json()
+        client = await get_http_client()
+        resp = await client.get(
+            OPENDOTA_ITEMS, timeout=_cfg.config.d2w_download_timeout
+        )
+        raw = resp.json()
         new_items = {}
         for key, it in raw.items():
             iid = it.get("id")
@@ -547,25 +547,17 @@ OTHER_IMAGES = [
 ]
 
 # ============================================================
-# 异步 HTTP 会话（全局复用）
+# 异步 HTTP 会话（全局复用 utils 的 httpx 客户端）
 # ============================================================
-_client_session = None
-
-
 async def get_session():
-    """获取并复用全局 aiohttp 会话，不存在或已关闭时重建。"""
-    global _client_session
-    if _client_session is None or _client_session.closed:
-        _client_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60))
-    return _client_session
+    """获取并复用全局复用的 httpx 异步客户端。"""
+    return await get_http_client()
 
 
 async def close_session():
-    """关闭全局 aiohttp 会话并置空。"""
-    global _client_session
-    if _client_session is not None and not _client_session.closed:
-        await _client_session.close()
-        _client_session = None
+    """关闭全局复用的 httpx 异步客户端。"""
+    client = await get_http_client()
+    await client.aclose()
 
 
 # ============================================================
@@ -737,18 +729,18 @@ async def _fetch_match_json(session, match_id, retries=3):
     """从 OpenDota 获取比赛 JSON；对网络错误 / 5xx / 429 自动重试。
 
     OpenDota 经 Cloudflare 返回 522 等临时错误时响应体是 HTML 页面，
-    直接 resp.json() 会因 mimetype 不符抛异常，这里先判断状态码再解析。
+    直接 resp.json() 会因解析失败抛异常，这里先判断状态码再解析。
     """
     for attempt in range(1, retries + 1):
         try:
-            async with session.get(OPENDOTA_MATCHES.format(match_id=match_id)) as resp:
-                if resp.status == 200:
-                    return await resp.json(content_type=None)
-                err = f"HTTP {resp.status}"
-                if resp.status < 500 and resp.status != 429:
-                    # 4xx（限流除外）重试无意义
-                    logger.warning(f"获取比赛数据失败: {err}")
-                    return None
+            resp = await session.get(OPENDOTA_MATCHES.format(match_id=match_id))
+            if resp.status_code == 200:
+                return resp.json()
+            err = f"HTTP {resp.status_code}"
+            if resp.status_code < 500 and resp.status_code != 429:
+                # 4xx（限流除外）重试无意义
+                logger.warning(f"获取比赛数据失败: {err}")
+                return None
         except Exception as e:
             err = f"{type(e).__name__}: {e}"
         logger.warning(f"获取比赛数据失败: {err}（第 {attempt}/{retries} 次）")
@@ -824,8 +816,8 @@ async def get_match(match_id, wait=True, timeout=None, force=False, match_data=N
     # 请求分析并通过 SSE 流监控状态
     logger.info("比赛分析结果不完整，正在请求 OpenDota 分析...")
     try:
-        async with session.post(OPENDOTA_REQUEST.format(match_id=match_id)) as resp:
-            j = await resp.json()
+        resp = await session.post(OPENDOTA_REQUEST.format(match_id=match_id))
+        j = resp.json()
         job_id = j.get("job", {}).get("jobId")
         logger.info(f"已请求分析，job_id={job_id}")
     except Exception as e:
@@ -838,12 +830,13 @@ async def get_match(match_id, wait=True, timeout=None, force=False, match_data=N
 
     # 通过 SSE 流监控解析进度（单次，不重试）
     try:
-        async with session.get(
+        async with session.stream(
+            "GET",
             OPENDOTA_LOGS.format(job_id=job_id),
-            timeout=aiohttp.ClientTimeout(total=300, sock_read=5),
+            timeout=httpx.Timeout(300, read=5),
         ) as resp:
-            async for raw in resp.content:
-                line = raw.decode("utf-8", errors="ignore").strip()
+            async for line in resp.aiter_lines():
+                line = line.strip()
                 if not line.startswith("data:"):
                     continue
                 msg = line[5:].strip()
@@ -1522,6 +1515,9 @@ def generate_match_image_sync(*args, **kwargs):
 # ============================================================
 async def async_main():
     """解析命令行参数并执行生成流程，输出结果提示。"""
+    import argparse
+    import sys
+
     parser = argparse.ArgumentParser(description="Dota 2 战报图片生成器（异步版）")
     parser.add_argument("match_id", help="Dota 2 比赛编号ID")
     parser.add_argument("-o", "--output", help="输出图片路径", default=None)

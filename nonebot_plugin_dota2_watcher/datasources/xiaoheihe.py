@@ -13,14 +13,13 @@
 """
 
 import hashlib
-import json
 import os
 import re
 import secrets
 import time
 
 from ..config import DATA_DIR, MATCHES_DIR, OPENDOTA_ITEMS_URL
-from ..utils import DOTA2HTTPError, get_http_client
+from ..utils import DOTA2HTTPError, dumpjson, get_http_client, loadjson
 
 API_BASE = "https://api.xiaoheihe.cn"
 # 注意：该接口 URL 不能带末尾斜杠（带斜杠会 404）；hkey 签名内部会自行归一化路径，无影响
@@ -140,11 +139,7 @@ def _load_items_name2id_from_cache():
 
     读取失败或为空时返回空字典。
     """
-    try:
-        with open(ITEM_CACHE_FILE, encoding="utf-8") as f:
-            cached = json.load(f)
-    except Exception:
-        return {}
+    cached = loadjson(ITEM_CACHE_FILE)
     if not isinstance(cached, dict):
         return {}
     name2id = {}
@@ -439,8 +434,7 @@ async def request_match_info_xiaoheihe(match_id):
     try:
         os.makedirs(MATCHES_DIR, exist_ok=True)
         cache_file = os.path.join(str(MATCHES_DIR), f"{int(match_id)}.json")
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump(match, f, ensure_ascii=False, indent=2)
+        dumpjson(match, cache_file)
     except Exception:
         # 缓存失败不影响返回结果
         pass

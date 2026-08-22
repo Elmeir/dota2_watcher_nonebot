@@ -21,7 +21,7 @@
 pip install nonebot2 nonebot-adapter-onebot
 
 # 2. 安装本插件依赖
-pip install httpx aiohttp Pillow fonttools playwright
+pip install httpx Pillow fonttools playwright
 
 # 3. 安装 NoneBot 插件
 nb plugin install nonebot-plugin-apscheduler
