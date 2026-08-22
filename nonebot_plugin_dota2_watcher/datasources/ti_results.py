@@ -155,6 +155,36 @@ def collect_series(node_groups):
     return series
 
 
+def _score_line(t1, w1, w2, t2):
+    """格式化比赛比分行：'{战队A} {比分A} : {比分B} {战队B}'（冒号两侧带空格）。"""
+    return f"{t1} {w1} : {w2} {t2}"
+
+
+def _series_score(node):
+    """返回系列赛比分 (w1, w2)，优先使用官方聚合字段 team_1_wins/team_2_wins。
+
+    用 matches 单局 winning_team_id 统计交叉校验：若统计胜场更多（聚合字段尚未
+    同步刚结束的单局，存在瞬时滞后），则采用 matches 统计，避免比分少显示一局。
+    """
+    w1 = int(node.get("team_1_wins") or 0)
+    w2 = int(node.get("team_2_wins") or 0)
+    try:
+        t1, t2 = int(node.get("team_id_1")), int(node.get("team_id_2"))
+    except (TypeError, ValueError):
+        return w1, w2
+    wins = {t1: 0, t2: 0}
+    for m in node.get("matches", []) or []:
+        if isinstance(m, dict):
+            try:
+                wid = int(m.get("winning_team_id"))
+            except (TypeError, ValueError):
+                continue
+            if wid in wins:
+                wins[wid] += 1
+    c1, c2 = wins[t1], wins[t2]
+    return (c1, c2) if c1 + c2 > w1 + w2 else (w1, w2)
+
+
 def collect_finished_games(data, team_map):
     """汇总所有已结束的单局。
 
@@ -165,7 +195,7 @@ def collect_finished_games(data, team_map):
     for node in collect_series(data.get("node_groups", [])):
         t1 = team_map.get(node.get("team_id_1"), "TBD")
         t2 = team_map.get(node.get("team_id_2"), "TBD")
-        w1, w2 = node.get("team_1_wins", 0), node.get("team_2_wins", 0)
+        w1, w2 = _series_score(node)
         for m in node.get("matches", []) or []:
             if not isinstance(m, dict):
                 continue
@@ -222,7 +252,7 @@ def watch_finished(interval):
             if mid in seen:
                 continue
             seen.add(mid)
-            print(f"[{stamp}] [TI] {g['t1']} {g['w1']}:{g['w2']} {g['t2']}")
+            print(f"[{stamp}] [TI] {_score_line(g['t1'], g['w1'], g['w2'], g['t2'])}")
 
         time.sleep(interval)
 
@@ -385,7 +415,7 @@ async def watch_latest_result(mode="series", debug=False):
                     w2 += 1
                 else:
                     continue  # 胜者不在对战双方中，跳过
-                finished.append((mid, f"{t1} {w1} : {w2} {t2}"))
+                finished.append((mid, _score_line(t1, w1, w2, t2)))
         finished.sort(key=lambda x: x[0])
         if not _watch_game_baseline_done:
             _watch_game_baseline_done = True
@@ -422,8 +452,8 @@ async def watch_latest_result(mode="series", debug=False):
                     _watch_seen_series.add(sid)
                     t1 = team_map.get(n.get("team_id_1"), "TBD")
                     t2 = team_map.get(n.get("team_id_2"), "TBD")
-                    w1, w2 = n.get("team_1_wins", 0), n.get("team_2_wins", 0)
-                    pending.append(f"{t1} {w1} : {w2} {t2}")
+                    w1, w2 = _series_score(n)
+                    pending.append(_score_line(t1, w1, w2, t2))
 
     if not pending:
         return ""
@@ -676,8 +706,7 @@ def compute_team_game_record(swiss_nodes, team_info):
                 max_round = idx
             t1 = int(n["team_id_1"])
             t2 = int(n["team_id_2"])
-            w1 = int(n.get("team_1_wins", 0) or 0)
-            w2 = int(n.get("team_2_wins", 0) or 0)
+            w1, w2 = _series_score(n)
             completed = bool(n.get("is_completed"))
             started = bool(n.get("has_started"))
             if side == "t1":
@@ -777,7 +806,7 @@ def predict_swiss_next_round(swiss_nodes, team_info):
         if t1 in (None, 0) or t2 in (None, 0) or not n.get("is_completed"):
             continue
         t1, t2 = int(t1), int(t2)
-        w1, w2 = int(n.get("team_1_wins") or 0), int(n.get("team_2_wins") or 0)
+        w1, w2 = _series_score(n)
         key = (n.get("scheduled_time") or 0, n.get("actual_time") or 0, n.get("series_id") or 0)
         completed[t1].append((key, t2, 1 if w1 >= 2 else 0, w1, w2))
         completed[t2].append((key, t1, 1 if w2 >= 2 else 0, w2, w1))
@@ -2145,8 +2174,9 @@ def _logo_img_html(tid, logo_uris):
 def _bracket_opponent_html(n, slot, is_last, team_info, logo_uris):
     """渲染对阵图单侧队伍行（队名 + logo + 比分）。"""
     tid = int(n.get("team_id_1") if slot == 0 else n.get("team_id_2") or 0)
-    wins = int((n.get("team_1_wins") or 0) if slot == 0 else (n.get("team_2_wins") or 0))
-    opp_wins = int((n.get("team_2_wins") or 0) if slot == 0 else (n.get("team_1_wins") or 0))
+    w1, w2 = _series_score(n)
+    wins = w1 if slot == 0 else w2
+    opp_wins = w2 if slot == 0 else w1
     started = bool(n.get("has_started")) or wins or opp_wins
     win_cls = " brkts-opponent-win" if n.get("is_completed") and wins > opp_wins else ""
     last_cls = " brkts-opponent-entry-last" if is_last else ""
@@ -2370,8 +2400,7 @@ def _elim_winner_tid(n):
     """已结束比赛的获胜方 team_id；未结束返回 None。"""
     if not n.get("is_completed"):
         return None
-    w1 = int(n.get("team_1_wins") or 0)
-    w2 = int(n.get("team_2_wins") or 0)
+    w1, w2 = _series_score(n)
     if w1 > w2:
         return int(n.get("team_id_1") or 0) or None
     if w2 > w1:
@@ -2436,18 +2465,13 @@ def _scheduled_time_text(n, bold_date=None, live_red=False, today_delay=0):
         # 进行中：仅正赛开启 live_red 时显示并加粗标红，其它场景不显示时间
         if not live_red:
             return None
-        text = f"{dt.month}/{dt.day} {dt:%H:%M}"
-        return f'<b style="color:#FF4B59">{text}</b>'
+        return f'<b style="color:#FF4B59">{dt.month}/{dt.day} {dt:%H:%M}</b>'
     # 今日未开始的比赛：按今日已开赛比赛的顺延量后移显示时间（推测值，加 ? 标注）
-    delayed = False
-    if today_delay:
-        st = n.get("scheduled_time")
-        if st and datetime.fromtimestamp(st, LOCAL_TZ).date() == datetime.now(LOCAL_TZ).date():
-            dt = datetime.fromtimestamp(ts + today_delay, LOCAL_TZ)
-            delayed = True
-    text = f"{dt.month}/{dt.day} {dt:%H:%M}"
-    if delayed:
-        text += " ?"
+    if today_delay and dt.date() == datetime.now(LOCAL_TZ).date():
+        dt = datetime.fromtimestamp(ts + today_delay, LOCAL_TZ)
+        text = f"{dt.month}/{dt.day} {dt:%H:%M} ?"
+    else:
+        text = f"{dt.month}/{dt.day} {dt:%H:%M}"
     if bold_date is not None and dt.date() == bold_date:
         return f"<b>{text}</b>"
     return text
@@ -2657,7 +2681,7 @@ def main():
     def print_series(node):
         t1 = team_map.get(node.get("team_id_1"), "TBD")
         t2 = team_map.get(node.get("team_id_2"), "TBD")
-        w1, w2 = node.get("team_1_wins", 0), node.get("team_2_wins", 0)
+        w1, w2 = _series_score(node)
         status = series_status(node)
         time_str = fmt_ts(node.get("actual_time") or node.get("scheduled_time"))
         # 每局比分
@@ -2665,7 +2689,7 @@ def main():
             f"G{g['match_id']}->{team_map.get(g['winning_team_id'], '?')}"
             for g in node.get("matches", [])
         )
-        print(f"{time_str}  [{status}]  {t1} {w1} : {w2} {t2}")
+        print(f"{time_str}  [{status}]  {_score_line(t1, w1, w2, t2)}")
         if games:
             print(f"          局次: {games}")
 
