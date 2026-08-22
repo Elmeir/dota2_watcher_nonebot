@@ -19,7 +19,7 @@ import secrets
 import time
 
 from ..config import DATA_DIR, MATCHES_DIR, OPENDOTA_ITEMS_URL
-from ..utils import DOTA2HTTPError, dumpjson, get_http_client, loadjson
+from ..utils import DOTA2HTTPError, dumpjson, get_json, loadjson
 
 API_BASE = "https://api.xiaoheihe.cn"
 # 注意：该接口 URL 不能带末尾斜杠（带斜杠会 404）；hkey 签名内部会自行归一化路径，无影响
@@ -100,10 +100,7 @@ def generate_hkey(path, timestamp, nonce):
         _map_to_alphabet(str(nonce), _HKEY_ALPHABET),
     )
     interleaved = "".join(
-        part[i]
-        for i in range(max(len(p) for p in parts))
-        for part in parts
-        if i < len(part)
+        part[i] for i in range(max(len(p) for p in parts)) for part in parts if i < len(part)
     )[:20]
     digest = hashlib.md5(interleaved.encode(), usedforsecurity=False).hexdigest()
     mixed = _mix_tail([ord(c) for c in digest[-6:]])
@@ -116,9 +113,11 @@ def sign_params(path, base_params=None):
     """为指定路径补充 _time / nonce / hkey 签名参数。"""
     params = dict(base_params or {})
     timestamp = int(time.time())
-    nonce = hashlib.md5(
-        f"{timestamp}{secrets.token_hex(16)}".encode(), usedforsecurity=False
-    ).hexdigest().upper()
+    nonce = (
+        hashlib.md5(f"{timestamp}{secrets.token_hex(16)}".encode(), usedforsecurity=False)
+        .hexdigest()
+        .upper()
+    )
     params["_time"] = str(timestamp)
     params["nonce"] = nonce
     params["hkey"] = generate_hkey(path, timestamp, nonce)
@@ -169,10 +168,8 @@ async def load_item_name_to_id():
 
     name2id = {}
     try:
-        client = await get_http_client()
-        response = await client.get(OPENDOTA_ITEMS_URL)
-        response.raise_for_status()
-        for key, item in response.json().items():
+        items = await get_json(OPENDOTA_ITEMS_URL)
+        for key, item in items.items():
             iid = item.get("id")
             if iid is not None:
                 name2id[key.replace("item_", "")] = int(iid)
@@ -407,17 +404,10 @@ async def request_match_info_xiaoheihe(match_id):
     返回 dict；请求失败或上游返回异常时抛出 DOTA2HTTPError。
     """
     params = sign_params(MATCH_DETAIL_PATH, {**MATCH_BASE_PARAMS, "match_id": str(int(match_id))})
-    client = await get_http_client()
     try:
-        response = await client.get(API_BASE + MATCH_DETAIL_PATH, params=params, headers=HEADERS)
-    except Exception as e:
-        raise DOTA2HTTPError(f"小黑盒回退数据源请求失败：{e}") from e
-    if response.status_code >= 400:
-        raise DOTA2HTTPError(f"小黑盒回退数据源请求失败：HTTP {response.status_code}")
-    try:
-        data = response.json()
-    except Exception as e:
-        raise DOTA2HTTPError("小黑盒回退数据源返回解析失败") from e
+        data = await get_json(API_BASE + MATCH_DETAIL_PATH, params=params, headers=HEADERS)
+    except ValueError:
+        raise DOTA2HTTPError("小黑盒回退数据源返回解析失败")
     if not isinstance(data, dict) or data.get("status") != "ok" or not data.get("result"):
         raise DOTA2HTTPError(f"小黑盒回退数据源返回异常：{str(data)[:200]}")
 
@@ -426,9 +416,7 @@ async def request_match_info_xiaoheihe(match_id):
 
     # players 为空说明上游没有返回玩家数据，等价于无数据，抛出异常
     if not match["players"]:
-        raise DOTA2HTTPError(
-            f"小黑盒回退数据源返回异常：players 为空（match_id={match_id}）"
-        )
+        raise DOTA2HTTPError(f"小黑盒回退数据源返回异常：players 为空（match_id={match_id}）")
 
     # 写入 match_report 使用的比赛缓存，便于战报图片生成器直接复用。
     try:

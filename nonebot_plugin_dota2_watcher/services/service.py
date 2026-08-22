@@ -145,9 +145,12 @@ async def ti_image() -> str:
 
 # 英雄池比赛数量档位：关键字（中英） -> 拉取场次；非法关键字回落默认挡
 _HERO_POOL_SIZES = {
-    "min": 25, "小": 25,
-    "mid": 50, "中": 50,
-    "max": 100, "大": 100,
+    "min": 25,
+    "小": 25,
+    "mid": 50,
+    "中": 50,
+    "max": 100,
+    "大": 100,
 }
 
 
@@ -225,7 +228,9 @@ async def _report_match(match: NewMatch) -> None:
     pic = None
     try:
         # 复用阶段二已拉取的 match_info，避免图片生成时再次请求 OpenDota
-        pic = await match_builder.generate_report_img(match.match_id, force=True, match_data=match.match_info)
+        pic = await match_builder.generate_report_img(
+            match.match_id, force=True, match_data=match.match_info
+        )
     except Exception:
         logger.exception(f"生成战报图片失败: {match.match_id}")
 

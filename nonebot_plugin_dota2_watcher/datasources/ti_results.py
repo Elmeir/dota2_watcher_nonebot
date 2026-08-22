@@ -16,7 +16,6 @@
 
 import asyncio
 import base64
-import functools
 import gzip
 import io
 import json
@@ -369,7 +368,7 @@ async def watch_latest_result(mode="series", debug=False):
 
     try:
         # 轮询监控不做网络重试：失败即快速返回，由外层按重试间隔再试
-        data = await _to_thread(fetch_league_data)
+        data = await asyncio.to_thread(fetch_league_data)
     except Exception as exc:
         print(f"[!] 获取比赛数据失败: {exc}", file=sys.stderr)
         if _watch_next_check_ts == 0.0:
@@ -389,7 +388,7 @@ async def watch_latest_result(mode="series", debug=False):
             return ""
 
     # 抓取成功，保存到本地缓存 data/dota2_ti.json（供战报图片函数失败时回退）
-    await _to_thread(_save_league_data_cache, data)
+    await asyncio.to_thread(_save_league_data_cache, data)
 
     team_map = build_team_map(data.get("node_groups", []))
     next_interval = recommend_poll_interval(data.get("node_groups", []))
@@ -1103,7 +1102,7 @@ def _load_league_data_cache():
 
 async def _fetch_and_cache_league_data():
     """从官方 API 抓取联赛数据并写入本地缓存。"""
-    data = await _to_thread(fetch_league_data)
+    data = await asyncio.to_thread(fetch_league_data)
     _save_league_data_cache(data)
     return data
 
@@ -1346,17 +1345,6 @@ def _logo_data_uri_cached(tid, url):
     return _img_to_data_uri(img)
 
 
-def _to_thread(func, *args, **kwargs):
-    """在线程池执行阻塞函数，返回可 await 的 Future。
-
-    兼容 Python 3.9 以下（asyncio.to_thread 需要 3.9+）。
-    """
-    loop = asyncio.get_running_loop()
-    if args or kwargs:
-        func = functools.partial(func, *args, **kwargs)
-    return loop.run_in_executor(None, func)
-
-
 async def _prepare_report(data, output_path, prefix):
     """读取本地缓存数据与 Liquipedia logo 映射，并解析输出路径。
 
@@ -1375,10 +1363,10 @@ async def _prepare_report(data, output_path, prefix):
         data = await _league_data_cached_or_fetch()
         if not data:
             return None, {}, None, False
-        lp_logos = await _to_thread(fetch_liquipedia_logos)
+        lp_logos = await asyncio.to_thread(fetch_liquipedia_logos)
     else:
         _save_league_data_cache(data)
-        lp_logos = await _to_thread(fetch_liquipedia_logos)
+        lp_logos = await asyncio.to_thread(fetch_liquipedia_logos)
 
     if auto_named:
         digest = _league_data_xxh64()
@@ -1493,7 +1481,7 @@ async def generate_swiss_standings_image(output_path=None, data=None):
                 opp_tid = abbr_to_tid.get(rd["opp"])
                 if opp_tid:
                     tids.append(opp_tid)
-    logo_uris = await _to_thread(_build_logo_uris, tids, team_info, lp_logos)
+    logo_uris = await asyncio.to_thread(_build_logo_uris, tids, team_info, lp_logos)
 
     def logo_tag(tid, cls, fallback_abbr):
         """生成 logo HTML：有图用 <img>（透明背景），无图回退缩写文字。"""
@@ -2295,7 +2283,7 @@ async def generate_main_event_image(output_path=None, data=None):
         for tid in (n.get("team_id_1"), n.get("team_id_2")):
             if tid:
                 tids.append(tid)
-    logo_uris = await _to_thread(_build_logo_uris, tids, team_info, lp_logos)
+    logo_uris = await asyncio.to_thread(_build_logo_uris, tids, team_info, lp_logos)
 
     html = _render_bracket_html(model, team_info, logo_uris)
     return await _screenshot_html(
@@ -2605,7 +2593,7 @@ async def generate_elimination_round_image(output_path=None, data=None):
         for tid in (n.get("team_id_1"), n.get("team_id_2")):
             if tid:
                 tids.append(tid)
-    logo_uris = await _to_thread(_build_logo_uris, tids, team_info, lp_logos)
+    logo_uris = await asyncio.to_thread(_build_logo_uris, tids, team_info, lp_logos)
 
     html = _render_elimination_round_html(model, team_info, logo_uris)
     return await _screenshot_html(

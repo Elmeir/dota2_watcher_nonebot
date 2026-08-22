@@ -6,7 +6,7 @@ from nonebot.log import logger
 
 from ..config import D2PT_POS_URL, DATA_DIR, config
 from ..dota_dicts import HEROES_LIST_CHINESE
-from ..utils import DOTA2HTTPError, cache_with_fallback, dumpjson, get_http_client
+from ..utils import cache_with_fallback, dumpjson, get_json
 
 CACHE_EXPIRE_SECONDS = config.d2w_cache_expire_seconds  # 缓存时长（秒）
 POS_RAW_FILE = DATA_DIR / "d2pt_pos.json"  # 远程合并的全位置原始数据缓存
@@ -16,15 +16,7 @@ _URL = D2PT_POS_URL
 
 async def fetch_d2pt_cheatsheet() -> dict:
     """从远程拉取合并后的全位置原始数据，并写入本地缓存。"""
-    url = _URL
-    client = await get_http_client()
-    try:
-        response = await client.get(url)
-    except Exception:
-        raise DOTA2HTTPError(f"{CACHE_EXPIRE_SECONDS}秒内无法连接到网站，建议检查网络")
-    if response.status_code >= 400:
-        raise DOTA2HTTPError(f"D2PT 数据获取失败：{response.status_code}")
-    d2pt_data = response.json()
+    d2pt_data = await get_json(_URL)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     dumpjson(d2pt_data, POS_RAW_FILE)
     return d2pt_data

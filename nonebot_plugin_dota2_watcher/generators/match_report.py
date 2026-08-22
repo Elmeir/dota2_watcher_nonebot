@@ -354,9 +354,7 @@ async def _fetch_heroes():
     global HEROES
     try:
         client = await get_http_client()
-        resp = await client.get(
-            OPENDOTA_HEROES, timeout=_cfg.config.d2w_download_timeout
-        )
+        resp = await client.get(OPENDOTA_HEROES, timeout=_cfg.config.d2w_download_timeout)
         raw = resp.json()
         new_heroes = {}
         for h in raw.values():
@@ -381,9 +379,7 @@ async def _fetch_items():
     global ITEMS
     try:
         client = await get_http_client()
-        resp = await client.get(
-            OPENDOTA_ITEMS, timeout=_cfg.config.d2w_download_timeout
-        )
+        resp = await client.get(OPENDOTA_ITEMS, timeout=_cfg.config.d2w_download_timeout)
         raw = resp.json()
         new_items = {}
         for key, it in raw.items():
@@ -545,6 +541,7 @@ OTHER_IMAGES = [
     "shard_0",
     "shard_1",
 ]
+
 
 # ============================================================
 # 异步 HTTP 会话（全局复用 utils 的 httpx 客户端）
@@ -921,7 +918,9 @@ async def generate_match_image(
             logger.info(f"检测到已生成的完整战报缓存，直接返回: {cached_complete}")
             return cached_complete
 
-    match = await get_match(match_id, wait=wait, timeout=timeout, force=force, match_data=match_data)
+    match = await get_match(
+        match_id, wait=wait, timeout=timeout, force=force, match_data=match_data
+    )
     if match is False:
         logger.error("解析失败（Replay not found），无法生成战报")
         return False

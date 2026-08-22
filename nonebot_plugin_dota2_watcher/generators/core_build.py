@@ -145,9 +145,7 @@ THEMES = {"dark": THEME_DARK, "light": THEME_LIGHT}
 # ============================================================
 def _download_to(url, filepath, quiet=False):
     """下载 url 内容到本地文件，成功返回 True，失败返回 False。"""
-    return download_file(
-        url, filepath, timeout=_cfg.config.d2w_download_timeout, quiet=quiet
-    )
+    return download_file(url, filepath, timeout=_cfg.config.d2w_download_timeout, quiet=quiet)
 
 
 def _repo_icon_url(name):
@@ -211,9 +209,7 @@ async def ensure_data_file():
     # 确保技能映射存在：仅在 abilities.json 缺失时，用 npc_ability_ids.txt 本地生成（不从仓库拉取）
     if not os.path.exists(ABILITIES_FILE):
         if not os.path.exists(NPC_ABILITY_IDS_FILE):
-            await asyncio.to_thread(
-                _download_sources, NPC_ABILITY_IDS_URLS, NPC_ABILITY_IDS_FILE
-            )
+            await asyncio.to_thread(_download_sources, NPC_ABILITY_IDS_URLS, NPC_ABILITY_IDS_FILE)
         if os.path.exists(NPC_ABILITY_IDS_FILE):
             generate_abilities()
             # 生成完成后删除临时源文件，只保留 abilities.json
@@ -1189,7 +1185,10 @@ async def generate_image(
         output_path = os.path.join(OUTPUT_DIR, f"{safe_hero}_{safe_pos}.png")
 
     # 图片缓存：缓存期内（默认 24 小时 / 1 天）复用已生成的图片，避免重复渲染
-    if os.path.exists(output_path) and time.time() - os.path.getmtime(output_path) <= IMAGE_CACHE_SECONDS:
+    if (
+        os.path.exists(output_path)
+        and time.time() - os.path.getmtime(output_path) <= IMAGE_CACHE_SECONDS
+    ):
         print(f"图片缓存命中（{IMAGE_CACHE_SECONDS} 秒内）: {output_path}")
         return output_path
 

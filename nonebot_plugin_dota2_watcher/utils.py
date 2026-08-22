@@ -8,6 +8,7 @@ import ssl
 import sys
 import time
 import urllib.request
+from typing import Any
 
 import httpx
 
@@ -32,6 +33,35 @@ def prompt_error(response: httpx.Response, url: str) -> None:
         if response.status_code == 503:
             raise DOTA2HTTPError("服务器繁忙或您超出了限制。请等待 30 秒后重试。")
         raise DOTA2HTTPError(f"无法获取数据：{response.status_code}。URL：{url}")
+
+
+def network_timeout_error() -> DOTA2HTTPError:
+    """返回「连接超时」业务异常（统一文案，含 d2w_timeout 配置）。"""
+    return DOTA2HTTPError(
+        f"{config.d2w_timeout}秒内无法连接到网站，建议检查网络，或者尝试使用代理服务器"
+    )
+
+
+async def get_json(
+    url: str,
+    *,
+    headers: dict | None = None,
+    params: dict | None = None,
+    timeout: float | None = None,
+) -> Any:
+    """异步 GET 指定 URL 并返回解析后的 JSON。
+
+    统一各数据源的「取共享客户端 + GET + 超时转异常 + 状态码校验」样板：
+    - 网络异常统一抛出 network_timeout_error()；
+    - HTTP 状态码 >=400 由 prompt_error 抛出友好信息。
+    """
+    client = await get_http_client()
+    try:
+        response = await client.get(url, headers=headers, params=params, timeout=timeout)
+    except Exception:
+        raise network_timeout_error()
+    prompt_error(response, url)
+    return response.json()
 
 
 def _proxies_kwargs() -> dict:

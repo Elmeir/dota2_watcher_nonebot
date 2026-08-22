@@ -20,7 +20,7 @@ from pathlib import Path
 
 from nonebot.log import logger
 
-from ..config import DATA_DIR, config, IMAGES_DIR
+from ..config import DATA_DIR, IMAGES_DIR, config
 from ..utils import async_download_bytes, cache_with_fallback, get_http_client, load_cache
 
 GRAPHQL_URL = "https://api.stratz.com/graphql"
@@ -91,15 +91,28 @@ def _load_cache(cache_path: Path, key: tuple[int, int], now: float, max_age: flo
     return data.get("player_name"), data.get("avatar") or "", data.get("matches") or []
 
 
-def _save_cache(cache_path: Path, key: tuple[int, int], player_name: str,
-                avatar: str, matches: list[dict], now: float) -> None:
+def _save_cache(
+    cache_path: Path,
+    key: tuple[int, int],
+    player_name: str,
+    avatar: str,
+    matches: list[dict],
+    now: float,
+) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(
         json.dumps(
-            {"cache_version": CACHE_VERSION, "steam_id": key[0], "count": key[1],
-             "fetched_at": now, "player_name": player_name, "avatar": avatar,
-             "matches": matches},
-            ensure_ascii=False, indent=2,
+            {
+                "cache_version": CACHE_VERSION,
+                "steam_id": key[0],
+                "count": key[1],
+                "fetched_at": now,
+                "player_name": player_name,
+                "avatar": avatar,
+                "matches": matches,
+            },
+            ensure_ascii=False,
+            indent=2,
         ),
         encoding="utf-8",
     )
@@ -170,18 +183,21 @@ def _parse_payload(payload: dict, steam_id) -> tuple[str, str, list[dict]]:
         for p in match.get("players") or []:
             hero = p.get("hero")
             if hero:
-                matches.append({
-                    "name": hero.get("name"),
-                    "display": hero.get("displayName"),
-                    "short": hero.get("shortName"),
-                    "position": p.get("position"),
-                })
+                matches.append(
+                    {
+                        "name": hero.get("name"),
+                        "display": hero.get("displayName"),
+                        "short": hero.get("shortName"),
+                        "position": p.get("position"),
+                    }
+                )
                 break
     return player_name, avatar, matches
 
 
-async def fetch_matches(steam_id, count=25, refresh=False,
-                        cache_path: Path | None = None, max_age=None):
+async def fetch_matches(
+    steam_id, count=25, refresh=False, cache_path: Path | None = None, max_age=None
+):
     """拉取玩家最近比赛数据：先尝试抓取 API，失败（网络/限流/解析错误）才回退本地缓存。
 
     返回 (player_name, avatar, matches)：
@@ -230,9 +246,7 @@ async def fetch_matches(steam_id, count=25, refresh=False,
         force_update=True,
         loader=_load,
         fallback=not refresh,
-        warn=lambda: logger.warning(
-            f"Stratz API 抓取失败，回退本地缓存 {cache_path.name}"
-        ),
+        warn=lambda: logger.warning(f"Stratz API 抓取失败，回退本地缓存 {cache_path.name}"),
     )
 
 
@@ -261,12 +275,13 @@ def pos_distribution(matches: list[dict]) -> list[tuple[str | int, int]]:
     与 STRATZ 内环占比图一致：基于每场比赛的 position 字段统计（不能按英雄聚合）。
     position 为 null 就是 unknown，保留计入（画成半透明白扇区），不做任何推测归类。
     """
+
     def norm(pos) -> str | int:
         if pos is None:
             return "unknown"
         s = str(pos).strip().lower()
         if s.startswith("position_"):
-            s = s[len("position_"):]
+            s = s[len("position_") :]
         if s.isdigit():
             n = int(s)
             return n if 1 <= n <= 5 else "unknown"
@@ -338,9 +353,7 @@ async def load_avatar_img(url: str):
     try:
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(
-                await async_download_bytes(url, timeout=config.d2w_download_timeout)
-            )
+            path.write_bytes(await async_download_bytes(url, timeout=config.d2w_download_timeout))
         img = Image.open(path).convert("RGBA")
     except Exception as e:
         logger.warning(f"玩家头像下载/读取失败：{e}")

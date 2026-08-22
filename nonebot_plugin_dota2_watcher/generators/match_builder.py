@@ -18,7 +18,6 @@ from ..dota_dicts import (
 )
 from . import match_report
 
-
 EXCLUDED_BENCHMARKS = {
     "hero_healing_per_min",
     "tower_damage",

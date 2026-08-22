@@ -22,12 +22,12 @@ from ..config import OUTPUT_DIR
 from ..datasources import hero_pool as ds
 
 SCALE = 2  # 分辨率倍率
-SS = 4     # 超采样倍率：先 4x 绘制再降采样，抗锯齿
+SS = 4  # 超采样倍率：先 4x 绘制再降采样，抗锯齿
 
 # 环形布局常量（viewBox 640x640 = 320*2）
 CX = CY = 160 * SCALE
-R_OUT = 160 * SCALE   # 外半径
-R_IN = 100 * SCALE    # 内半径
+R_OUT = 160 * SCALE  # 外半径
+R_IN = 100 * SCALE  # 内半径
 ICON_RADIUS = 130 * SCALE  # 头像中心所在半径（环带中部）
 
 # ============================================================
@@ -39,41 +39,41 @@ THEME = "light"  # 默认主题，改为 "dark" 可切回暗色
 # Stratz 320 坐标下内环外半径 84、内半径 37（环带宽 47，中间是洞）。
 # 这里把内环整体缩小（外半径 84 -> 62），留出外侧空环带，用于排布玩家名弧。
 # 各扇区 fill-opacity + 描边，圆心留空 —— 均为 stratz.com/players/ 实测值
-INNER_OUT = 0.75 * R_IN              # 内环外半径（已缩小，腾出名字环带）
-INNER_IN = INNER_OUT * 0.55          # 内环内半径（进一步缩小，中心洞更小、位置环带更宽）
+INNER_OUT = 0.75 * R_IN  # 内环外半径（已缩小，腾出名字环带）
+INNER_IN = INNER_OUT * 0.55  # 内环内半径（进一步缩小，中心洞更小、位置环带更宽）
 INNER_ICON_RADIUS = (INNER_OUT + INNER_IN) / 2.0  # 内环位置图标所在半径（环带中部）
 
 THEMES: dict[str, dict] = {
     "light": {
         "name": "亮色",
-        "bg": "#F8FAFC",                    # 页面背景色（冷调近白，干净清爽）
+        "bg": "#F8FAFC",  # 页面背景色（冷调近白，干净清爽）
         "sector_fill": "hsl(214,22%,88%)",  # 普通扇区：淡蓝灰（与背景区分又不抢眼）
-        "sector_opacity": 0.92,             # 扇区填充不透明度（提高对比、更利落）
-        "gap_opacity": 0.72,                # 前三渐变扇区渐变 stop 透明度
-        "stroke": "#9CA3AF",                # 扇区/内环描边：中性冷灰（清晰不刺眼）
-        "inner_opacity": 0.52,              # 内环填充不透明度
-        "inner_unknown": "hsl(0,0%,0%)",    # 内环未知扇区颜色（深灰）
-        "inner_unknown_alpha": 0.2,         # 内环未知扇区透明度（稍作提亮以便辨识）
-        "watermark": "#DFE1E2",             # 环心玩家名水印颜色（中性灰）
-        "grad_center_light": 0.70,          # 头像渐变中心亮度（亮）
-        "grad_edge_light": 0.42,            # 头像渐变外缘亮度（软过渡，避免发灰）
+        "sector_opacity": 0.92,  # 扇区填充不透明度（提高对比、更利落）
+        "gap_opacity": 0.72,  # 前三渐变扇区渐变 stop 透明度
+        "stroke": "#9CA3AF",  # 扇区/内环描边：中性冷灰（清晰不刺眼）
+        "inner_opacity": 0.52,  # 内环填充不透明度
+        "inner_unknown": "hsl(0,0%,0%)",  # 内环未知扇区颜色（深灰）
+        "inner_unknown_alpha": 0.2,  # 内环未知扇区透明度（稍作提亮以便辨识）
+        "watermark": "#DFE1E2",  # 环心玩家名水印颜色（中性灰）
+        "grad_center_light": 0.70,  # 头像渐变中心亮度（亮）
+        "grad_edge_light": 0.42,  # 头像渐变外缘亮度（软过渡，避免发灰）
         # 位置扇区填充色（亮色主题稍亮、对比度更好）
         "position_colors": {
-            1: "hsl(222,58%,52%)",   # 1 号位 优势路核心（蓝）
-            2: "hsl(187,55%,44%)",   # 2 号位 中路（青）
-            3: "hsl(32,90%,46%)",    # 3 号位 劣势路（橙）
-            4: "hsl(335,66%,56%)",   # 4 号位 游走（粉）
-            5: "hsl(152,72%,38%)",   # 5 号位 辅助（绿）
+            1: "hsl(222,58%,52%)",  # 1 号位 优势路核心（蓝）
+            2: "hsl(187,55%,44%)",  # 2 号位 中路（青）
+            3: "hsl(32,90%,46%)",  # 3 号位 劣势路（橙）
+            4: "hsl(335,66%,56%)",  # 4 号位 游走（粉）
+            5: "hsl(152,72%,38%)",  # 5 号位 辅助（绿）
             "unknown": "hsl(0,0%,0%)",
         },
         # 位置图标填充（亮色背景用深灰，与暗色主题的浅灰相反）
         "icons": {
-            "unknown": "#8E8E8E",   # 问号
-            "blade": (("#5E5E5E", "#1F1F1F"), (3, 18, 6, 21.75)),   # 剑柄
+            "unknown": "#8E8E8E",  # 问号
+            "blade": (("#5E5E5E", "#1F1F1F"), (3, 18, 6, 21.75)),  # 剑柄
             "sword": (("hsl(228,62%,58%)", "hsl(228,52%,46%)"), (23.915, 0, 6.38719, 17.6213)),
             "bow": (("hsl(187,64%,48%)", "hsl(188,56%,42%)"), (12, 0, 12, 24)),
             "shield": (("hsl(33,84%,52%)", "hsl(34,78%,42%)"), (12, 0.75, 12, 23.25)),
-            "wrist": "#5E5E5E",   # 护腕
+            "wrist": "#5E5E5E",  # 护腕
             "wrist_glow": (("#5E5E5E", "#1F1F1F"), (2.19928, 13.9623, 2.19928, 23.0759)),
             "wrist_glow5": (("#5E5E5E", "#1F1F1F"), (2.19928, 13.5766, 2.19928, 22.9711)),
             "flame": (("hsl(29,80%,48%)", "hsl(335,66%,56%)"), (20.1087, 0, 10.053, 15.0821)),
@@ -90,16 +90,16 @@ THEMES: dict[str, dict] = {
         "inner_opacity": 0.4,
         "inner_unknown": "hsl(0,0%,100%)",
         "inner_unknown_alpha": 0.16,
-        "watermark": "#A1A1AA",             # 环心玩家名水印颜色（浅灰）
+        "watermark": "#A1A1AA",  # 环心玩家名水印颜色（浅灰）
         "grad_center_light": 0.62,
         "grad_edge_light": 0.14,
         # 位置扇区填充色 = STRATZ 位置渐变第 2 个 stop（stratz.com/players/ 内环实测色值）
         "position_colors": {
-            1: "hsl(230,43%,45%)",   # 1 号位 优势路核心（蓝）
-            2: "hsl(188,48%,38%)",   # 2 号位 中路（青）
-            3: "hsl(34,82%,36%)",    # 3 号位 劣势路（橙）
-            4: "hsl(335,58%,51%)",   # 4 号位 游走（粉）
-            5: "hsl(158,78%,28%)",   # 5 号位 辅助（绿）
+            1: "hsl(230,43%,45%)",  # 1 号位 优势路核心（蓝）
+            2: "hsl(188,48%,38%)",  # 2 号位 中路（青）
+            3: "hsl(34,82%,36%)",  # 3 号位 劣势路（橙）
+            4: "hsl(335,58%,51%)",  # 4 号位 游走（粉）
+            5: "hsl(158,78%,28%)",  # 5 号位 辅助（绿）
             "unknown": "hsl(0,0%,100%)",
         },
         "icons": {
@@ -132,14 +132,16 @@ _ICON_PATHS: dict[PositionKey, list[tuple[str, str, float]]] = {
             "c0-1.73 1.311-2.421 2.302-2.977.85-.476 1.37-.8 1.37-1.43 0-.835-1.064-1.39-1.924-1.39-1.122 0-1.64.532-2.369 1.451"
             "a.581.581 0 0 1-.806.103L7.542 8.446a.582.582 0 0 1-.128-.792c1.143-1.679 2.6-2.622 4.866-2.622 2.375 0 4.91 1.854 4.91 4.297"
             "zm-3.158 8.09A2.034 2.034 0 0 1 12 19.453a2.035 2.035 0 0 1-2.032-2.033c0-1.12.911-2.032 2.032-2.032 1.12 0 2.032.912 2.032 2.032z",
-            "unknown", 1.0,
+            "unknown",
+            1.0,
         ),
     ],
     # 1 号位：剑柄 + 剑刃
     1: [
         (
             "M4.792 16.244L.623 20.388a2.107 2.107 0 000 2.992h.002a2.136 2.136 0 003.01 0l4.167-4.142-3.01-2.994z",
-            "blade", 0.7,
+            "blade",
+            0.7,
         ),
         (
             "M2.853 10.193c-.373.32-.597.78-.615 1.268-.018.49.17.964.517 1.309l8.53 8.478c.326.327.77.507 1.233.507"
@@ -147,7 +149,8 @@ _ICON_PATHS: dict[PositionKey, list[tuple[str, str, float]]] = {
             "a1.18 1.18 0 00.43-.776c.17-1.423.668-5.646.845-7.124a.406.406 0 00-.119-.337.414.414 0 00-.34-.116l-6.767.843"
             "c-.304.038-.578.19-.77.427L7.134 12.245s-1.087-1.085-1.973-1.962a1.702 1.702 0 00-2.305-.09h-.003"
             "zm7.519 4.69l9.922-9.861a.79.79 0 10-1.124-1.116l-9.922 9.863a.782.782 0 000 1.114c.31.31.813.31 1.124 0z",
-            "sword", 1.0,
+            "sword",
+            1.0,
         ),
     ],
     # 2 号位：弓 + 箭
@@ -160,7 +163,8 @@ _ICON_PATHS: dict[PositionKey, list[tuple[str, str, float]]] = {
             "C1.81 6.92.89 6.305.291 5.907a.655.655 0 01-.162-.934c.245-.323.547-.726.778-1.034a.65.65 0 01.856-.167l1.271.762"
             "C6.731 1.141 12.088.571 16.34 2.827a.535.535 0 01.126.852L15.094 5.05a.538.538 0 01-.609.107 8.72 8.72 0 00-9.27 1.328"
             "l1.35 9.228L19.263 3.015zm-1.4 4.844l-9.576 9.578 9.227 1.347a8.723 8.723 0 00.35-10.925z",
-            "bow", 1.0,
+            "bow",
+            1.0,
         ),
     ],
     # 3 号位：盾牌
@@ -172,7 +176,8 @@ _ICON_PATHS: dict[PositionKey, list[tuple[str, str, float]]] = {
             "-.054.1-.05.223.004.324.058.1.162.162.274.162h2.196c.169 0 .324.094.414.245.086.151.09.338.01.497-.64 1.242-1.93 3.75"
             "-2.646 5.148a.16.16 0 00.044.198c.06.046.144.04.198-.018 1.67-1.815 5.673-6.156 7.095-7.697a.338.338 0 00.061-.357"
             ".31.31 0 00-.288-.198h-2.008a.477.477 0 01-.407-.24.514.514 0 01-.011-.49c.49-.958 1.343-2.634 1.832-3.588z",
-            "shield", 1.0,
+            "shield",
+            1.0,
         ),
     ],
     # 4 号位：护腕 + 火焰
@@ -181,12 +186,14 @@ _ICON_PATHS: dict[PositionKey, list[tuple[str, str, float]]] = {
             "M18.442 18.141l2.167-1.25c.398-.23.898-.219 1.286.03l1.93 1.238a.373.373 0 01.005.63c-1.77 1.183-8 5.211-10.744 5.211"
             "-.926 0-7.725-2.034-7.725-2.034v-6.999h2.704c.881 0 1.741.265 2.46.755l1.635 1.117h3.671c.438 0 1.482 0 1.482 1.302 0 1.41"
             "-1.14 1.41-1.482 1.41h-5.395a.555.555 0 00-.565.543c0 .3.254.543.565.543h5.75s.82.004 1.473-.56c.414-.359.783-.944.783-1.936z",
-            "wrist", 1.0,
+            "wrist",
+            1.0,
         ),
         (
             "M4.399 15.02c0-.583-.494-1.058-1.1-1.058h-2.2c-.606 0-1.099.475-1.099 1.059v6.998c0 .583.493 1.057 1.099 1.057"
             "h2.2c.606 0 1.1-.474 1.1-1.057v-6.998z",
-            "wrist_glow", 0.7,
+            "wrist_glow",
+            0.7,
         ),
         (
             "M20.895 6.395a.32.32 0 00-.202-.246.336.336 0 00-.32.043c-.91.64-1.942.965-1.942.965.04-3.622-2.211-5.914-5.873-7.13"
@@ -194,7 +201,8 @@ _ICON_PATHS: dict[PositionKey, list[tuple[str, str, float]]] = {
             ".344.344 0 00-.3.043c-3.528 2.588-2.893 10.11 4.131 10.11 5.095 0 5.928-4.594 5.51-7.568zm-5.31-.56a.14.14 0 00-.03-.152"
             ".149.149 0 00-.158-.03c-2.764 1.222-3.878 6.061-.325 6.061 3.384 0 2.143-3.47.852-4.149a.111.111 0 00-.116.01.108.108 0 00-.05.106"
             "c.065.512-.148.819-.686.779-.209-.812.152-1.83.513-2.624z",
-            "flame", 1.0,
+            "flame",
+            1.0,
         ),
     ],
     # 5 号位：护腕 + 火花
@@ -203,12 +211,14 @@ _ICON_PATHS: dict[PositionKey, list[tuple[str, str, float]]] = {
             "M18.442 17.96l2.167-1.289a1.216 1.216 0 011.286.03l1.929 1.278a.392.392 0 01.005.65c-1.77 1.219-8 5.371-10.743 5.371"
             "-.926 0-7.725-2.097-7.725-2.097V14.69h2.704c.883 0 1.741.27 2.46.777l1.635 1.152h3.671c.44 0 1.484 0 1.484 1.342 0 1.453"
             "-1.143 1.453-1.484 1.453h-5.395a.564.564 0 00-.565.56c0 .308.254.558.565.558h5.75s.82.006 1.473-.578c.414-.368.783-.972.783-1.993z",
-            "wrist", 1.0,
+            "wrist",
+            1.0,
         ),
         (
             "M4.399 14.667c0-.602-.494-1.09-1.1-1.09h-2.2c-.606 0-1.099.488-1.099 1.09v7.214c0 .602.493 1.09 1.099 1.09h2.2"
             "c.607 0 1.1-.488 1.1-1.09v-7.214z",
-            "wrist_glow5", 0.7,
+            "wrist_glow5",
+            0.7,
         ),
         (
             "M23.594 10.114a.142.142 0 00.002-.274c-1.165-.402-2.238-1.461-2.635-2.62a.142.142 0 00-.274 0c-.39 1.16-1.443 2.247"
@@ -218,15 +228,16 @@ _ICON_PATHS: dict[PositionKey, list[tuple[str, str, float]]] = {
             ".111.16.209.16a.214.214 0 00.207-.16c.606-1.77 2.24-3.401 4.014-4.001zm4.87-4.187a.11.11 0 00.08-.106.112.112 0 00-.08-.108"
             "c-.91-.314-1.749-1.142-2.058-2.048A.113.113 0 0018.76 0a.113.113 0 00-.108.082c-.306.908-1.128 1.758-2.032 2.055a.11.11 0 00-.082.106"
             ".109.109 0 00.08.108c.905.314 1.728 1.145 2.034 2.047a.11.11 0 00.108.08c.05 0 .093-.032.106-.08.31-.91 1.148-1.745 2.058-2.054z",
-            "spark", 1.0,
+            "spark",
+            1.0,
         ),
     ],
 }
 
 
 # 动态头像尺寸（占比驱动）：最小/最大基础尺寸与"顶到最大"的占比阈值
-_ICON_MIN = 14          # 单场英雄的基础尺寸
-_ICON_MAX = 32          # 最高占比英雄的基础尺寸
+_ICON_MIN = 14  # 单场英雄的基础尺寸
+_ICON_MAX = 32  # 最高占比英雄的基础尺寸
 _ICON_RATIO_AT_MAX = 0.25  # 出场占比达 1/4 样本即顶到最大档
 # 角度重叠约束：icon 的角宽最多占其所在扇区角宽的该比例，剩下留给相邻 icon 的空隙
 _ICON_SECTOR_FRAC = 0.85
@@ -300,7 +311,7 @@ def _hsl_to_rgb(h: float, s: float, light: float) -> tuple[int, int, int]:
 
 def _parse_hsl(s: str) -> tuple[float, float, float]:
     """把 'hsl(h,s%,l%)' 字符串解析为 (h, s, l)，用于 PNG 渲染。"""
-    inner = s[s.find("(") + 1:s.rfind(")")]
+    inner = s[s.find("(") + 1 : s.rfind(")")]
     parts = [p.strip().strip("%") for p in inner.split(",")]
     return float(parts[0]), float(parts[1]), float(parts[2])
 
@@ -308,7 +319,7 @@ def _parse_hsl(s: str) -> tuple[float, float, float]:
 def _hex_rgb(color: str) -> tuple[int, int, int]:
     """把 '#rrggbb' 转成 (r, g, b)，供 PNG 渲染。"""
     color = color.lstrip("#")
-    return tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    return tuple(int(color[i : i + 2], 16) for i in (0, 2, 4))
 
 
 def _color_rgb(c: str) -> tuple[int, int, int]:
@@ -342,10 +353,7 @@ async def _hero_gradient(short: str) -> tuple[str, str] | None:
 
 async def build_hero_gradients(stats: list[dict]) -> list[tuple[str, str] | None]:
     """为排行前三的英雄从头像生成环带渐变；图标不可用/提取失败的项为 None。"""
-    return [
-        await _hero_gradient(item["short"])
-        for item in stats[:3]
-    ]
+    return [await _hero_gradient(item["short"]) for item in stats[:3]]
 
 
 # ============================================================
@@ -387,7 +395,7 @@ def _svg_path_polys(d):
                 pos += 1
             has = True
         if not has:
-            raise ValueError(f"无效的 SVG 数字 @{pos}: {d[pos:pos+8]!r}")
+            raise ValueError(f"无效的 SVG 数字 @{pos}: {d[pos : pos + 8]!r}")
         if pos < n and d[pos] in "eE":
             pos += 1
             if pos < n and d[pos] in "+-":
@@ -409,8 +417,7 @@ def _svg_path_polys(d):
         skip()
         return pos < n and (d[pos].isdigit() or d[pos] in "+-.")
 
-    st = {"cur": (0.0, 0.0), "start": (0.0, 0.0), "poly": [], "polys": [],
-          "prev": "", "ctrl": None}
+    st = {"cur": (0.0, 0.0), "start": (0.0, 0.0), "poly": [], "polys": [], "prev": "", "ctrl": None}
 
     def add(p):
         st["poly"].append(p)
@@ -419,8 +426,18 @@ def _svg_path_polys(d):
         for k in range(1, steps + 1):
             t = k / steps
             u = 1 - t
-            add((u*u*u*p0[0] + 3*u*u*t*c1[0] + 3*u*t*t*c2[0] + t*t*t*p1[0],
-                 u*u*u*p0[1] + 3*u*u*t*c1[1] + 3*u*t*t*c2[1] + t*t*t*p1[1]))
+            add(
+                (
+                    u * u * u * p0[0]
+                    + 3 * u * u * t * c1[0]
+                    + 3 * u * t * t * c2[0]
+                    + t * t * t * p1[0],
+                    u * u * u * p0[1]
+                    + 3 * u * u * t * c1[1]
+                    + 3 * u * t * t * c2[1]
+                    + t * t * t * p1[1],
+                )
+            )
         return p1
 
     def arcline(p0, rx, ry, phi, large, sweep, p1):
@@ -430,24 +447,30 @@ def _svg_path_polys(d):
         ph = math.radians(phi % 360)
         cp, sp = math.cos(ph), math.sin(ph)
         dx, dy = (p0[0] - p1[0]) / 2.0, (p0[1] - p1[1]) / 2.0
-        x1p, y1p = cp*dx + sp*dy, -sp*dx + cp*dy
-        lam = x1p*x1p/(rx*rx) + y1p*y1p/(ry*ry)
+        x1p, y1p = cp * dx + sp * dy, -sp * dx + cp * dy
+        lam = x1p * x1p / (rx * rx) + y1p * y1p / (ry * ry)
         if lam > 1:
             s = math.sqrt(lam)
             rx *= s
             ry *= s
-        den = rx*rx*y1p*y1p + ry*ry*x1p*x1p
-        coef = math.sqrt(max(0.0, (rx*rx*ry*ry - rx*rx*y1p*y1p - ry*ry*x1p*x1p) / den)) if den else 0.0
+        den = rx * rx * y1p * y1p + ry * ry * x1p * x1p
+        coef = (
+            math.sqrt(
+                max(0.0, (rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p) / den)
+            )
+            if den
+            else 0.0
+        )
         if large == sweep:
             coef = -coef
-        cxp, cyp = coef*rx*y1p/ry, -coef*ry*x1p/rx
-        cx = cp*cxp - sp*cyp + (p0[0] + p1[0]) / 2.0
-        cy = sp*cxp + cp*cyp + (p0[1] + p1[1]) / 2.0
+        cxp, cyp = coef * rx * y1p / ry, -coef * ry * x1p / rx
+        cx = cp * cxp - sp * cyp + (p0[0] + p1[0]) / 2.0
+        cy = sp * cxp + cp * cyp + (p0[1] + p1[1]) / 2.0
 
         def ang(ux, uy, vx, vy):
             nrm = math.hypot(ux, uy) * math.hypot(vx, vy)
-            a = math.acos(max(-1.0, min(1.0, (ux*vx + uy*vy) / nrm))) if nrm else 0.0
-            if ux*vy - uy*vx < 0:
+            a = math.acos(max(-1.0, min(1.0, (ux * vx + uy * vy) / nrm))) if nrm else 0.0
+            if ux * vy - uy * vx < 0:
                 a = -a
             return a
 
@@ -465,9 +488,15 @@ def _svg_path_polys(d):
         for _s in range(nsegs):
             ca, sa = math.cos(th), math.sin(th)
             cb, sb = math.cos(th + delta), math.sin(th + delta)
-            q1 = (cx + rx*(ca - k4*sa)*cp - ry*(sa + k4*ca)*sp, cy + rx*(ca - k4*sa)*sp + ry*(sa + k4*ca)*cp)
-            q2 = (cx + rx*(cb + k4*sb)*cp - ry*(sb - k4*cb)*sp, cy + rx*(cb + k4*sb)*sp + ry*(sb - k4*cb)*cp)
-            q3 = (cx + rx*cb*cp - ry*sb*sp, cy + rx*cb*sp + ry*sb*cp)
+            q1 = (
+                cx + rx * (ca - k4 * sa) * cp - ry * (sa + k4 * ca) * sp,
+                cy + rx * (ca - k4 * sa) * sp + ry * (sa + k4 * ca) * cp,
+            )
+            q2 = (
+                cx + rx * (cb + k4 * sb) * cp - ry * (sb - k4 * cb) * sp,
+                cy + rx * (cb + k4 * sb) * sp + ry * (sb - k4 * cb) * cp,
+            )
+            q3 = (cx + rx * cb * cp - ry * sb * sp, cy + rx * cb * sp + ry * sb * cp)
             bez(curp, q1, q2, q3)
             curp = q3
             th += delta
@@ -551,7 +580,7 @@ def _svg_path_polys(d):
             while more():
                 p0 = st["cur"]
                 if st["prev"] in ("C", "c", "S", "s") and st["ctrl"] is not None:
-                    c1 = (2*p0[0] - st["ctrl"][0], 2*p0[1] - st["ctrl"][1])
+                    c1 = (2 * p0[0] - st["ctrl"][0], 2 * p0[1] - st["ctrl"][1])
                 else:
                     c1 = p0
                 if rel:
@@ -606,8 +635,10 @@ def _draw_position_icon(canvas, pos: PositionKey, ix: float, iy: float, size: fl
         ox, oy = ix - half, iy - half
         mask = Image.new("1", (dim, dim), 0)
         for poly in polys:
-            pts = [(ix + (px - 12.0) / 24.0 * size - ox,
-                    iy + (py - 12.0) / 24.0 * size - oy) for px, py in poly]
+            pts = [
+                (ix + (px - 12.0) / 24.0 * size - ox, iy + (py - 12.0) / 24.0 * size - oy)
+                for px, py in poly
+            ]
             tmp = Image.new("1", (dim, dim), 0)
             ImageDraw.Draw(tmp).polygon(pts, fill=1)
             mask = ImageChops.logical_xor(mask, tmp)
@@ -624,11 +655,11 @@ def _draw_position_icon(canvas, pos: PositionKey, ix: float, iy: float, size: fl
 # 支持中文、emoji 等任意字符；结果懒加载并缓存，避免每次渲染都扫描字体。
 # 内环缩小后外侧留出空环带，玩家名以圆弧（顶部居中、左右对称）排布其上，
 # 不占用中心小圈，也不压到位置图标。
-NAME_RADIUS = (INNER_OUT + R_IN) / 2.0            # 名字弧形所在半径（最终像素）
-NAME_MAX_W = 2 * math.pi * NAME_RADIUS * 0.6      # 名字弧长上限（最终像素，留边距）
-NAME_MAX_SIZE = 30               # 起始字号（最终像素）
-NAME_MIN_SIZE = 18               # 最小可读字号
-NAME_CHAR_SPACING = 5            # 弧上相邻字素簇之间的额外间距（最终像素）
+NAME_RADIUS = (INNER_OUT + R_IN) / 2.0  # 名字弧形所在半径（最终像素）
+NAME_MAX_W = 2 * math.pi * NAME_RADIUS * 0.6  # 名字弧长上限（最终像素，留边距）
+NAME_MAX_SIZE = 30  # 起始字号（最终像素）
+NAME_MIN_SIZE = 18  # 最小可读字号
+NAME_CHAR_SPACING = 5  # 弧上相邻字素簇之间的额外间距（最终像素）
 _NAME_ELLIPSIS = "…"
 _name_font_paths: list[str] | None = None
 
@@ -756,9 +787,15 @@ def _radial_gradient(cx: float, cy: float, ro: float, size: int, c0, c1):
     return grad
 
 
-async def render_png(stats: list[dict], total: int, out_path, pos_dist=None,
-                     hero_gradients: Sequence[tuple[str, str] | None] = (),
-                     player_name: str = "", avatar_url: str = "") -> None:
+async def render_png(
+    stats: list[dict],
+    total: int,
+    out_path,
+    pos_dist=None,
+    hero_gradients: Sequence[tuple[str, str] | None] = (),
+    player_name: str = "",
+    avatar_url: str = "",
+) -> None:
     """用 Pillow 直接渲染 PNG 环形图（无 numpy 依赖）。"""
     from PIL import Image, ImageDraw
 
@@ -766,7 +803,7 @@ async def render_png(stats: list[dict], total: int, out_path, pos_dist=None,
     W = size * SS
 
     th = THEMES[THEME]
-    bg = tuple(int(th["bg"][i:i + 2], 16) for i in (1, 3, 5))
+    bg = tuple(int(th["bg"][i : i + 2], 16) for i in (1, 3, 5))
     stroke_rgb = _color_rgb(th["stroke"])
     cx, cy, ro, ri, ric = CX * SS, CY * SS, R_OUT * SS, R_IN * SS, ICON_RADIUS * SS
     canvas = Image.new("RGBA", (W, W), (*bg, 255))
@@ -863,8 +900,12 @@ async def render_png(stats: list[dict], total: int, out_path, pos_dist=None,
     for a in i_starts:
         (x1, y1), (x2, y2) = _pl(a, i_in), _pl(a, i_out + bw2)
         draw.line([x1, y1, x2, y2], fill=(*stroke_rgb, 255), width=bw2, joint="curve")
-    draw.ellipse([cx - i_out, cy - i_out, cx + i_out, cy + i_out], outline=(*stroke_rgb, 255), width=bw2)
-    draw.ellipse([cx - i_in, cy - i_in, cx + i_in, cy + i_in], outline=(*stroke_rgb, 255), width=bw2)
+    draw.ellipse(
+        [cx - i_out, cy - i_out, cx + i_out, cy + i_out], outline=(*stroke_rgb, 255), width=bw2
+    )
+    draw.ellipse(
+        [cx - i_in, cy - i_in, cx + i_in, cy + i_in], outline=(*stroke_rgb, 255), width=bw2
+    )
     # 位置图标绘制在描边之上
     for imid, pos, isz in i_icons:
         ix, iy = _pl(imid, i_icon_r)
@@ -917,7 +958,9 @@ async def generate_image(steam_id, count=25, refresh=False) -> str:
 
     数据抓取/渲染失败时抛 ds.HeroPoolError（供上层转为用户提示）。
     """
-    player_name, avatar_url, matches = await ds.fetch_matches(steam_id, count=count, refresh=refresh)
+    player_name, avatar_url, matches = await ds.fetch_matches(
+        steam_id, count=count, refresh=refresh
+    )
     if not matches:
         raise ds.HeroPoolError("未获取到任何比赛数据，请检查 steam_id 与 Token")
 
@@ -930,6 +973,7 @@ async def generate_image(steam_id, count=25, refresh=False) -> str:
 
     out_path = OUTPUT_DIR / f"hero_pool_{steam_id}.png"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    await render_png(stats, total, out_path, pos_dist, hero_gradients, player_name,
-                     avatar_url=avatar_url)
+    await render_png(
+        stats, total, out_path, pos_dist, hero_gradients, player_name, avatar_url=avatar_url
+    )
     return str(out_path)
